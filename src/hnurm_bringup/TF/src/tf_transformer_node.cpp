@@ -321,8 +321,8 @@ namespace hnurm
         {
             // 获取 gunpoint_link 相对于 map 的变换
             geometry_msgs::msg::TransformStamped tf = tf_buffer_->lookupTransform(
-                "map",
                 "gunpoint_horizontal",
+                "map",
                 tf2::TimePointZero,
                 tf2::durationFromSec(0.1));
 
