@@ -1,0 +1,61 @@
+/**:
+  ros__parameters:
+    laser_to_base: #描述的是在base系下的laser位置
+      x: 0.03
+      y: 0.145
+      z: 0.0
+      roll: 0.0
+      pitch: 0.0
+      yaw: 0.0
+    lidar_to_base: ##描述的是在base系下的mid360位置
+      x: -2.0 # 正常树值：-0.03
+      y: 1.0 # 正常树值：0.077
+      z: 4.0 # 正常树值：0.0601
+      roll: 0.0
+      pitch: 0.0
+      yaw: 0.0
+    joint_to_base: #描述的是在base系下的joint位置
+      x: 0.0
+      y: 0.0
+      z: 5.0 # 正常树值：0.081
+      roll: 0.0
+      pitch: 0.0
+      yaw: 0.0
+
+    camera_to_joint: # 描述的是在joint系下的camera
+      x: 0.117
+      y: 0.00
+      z: 0.01
+      roll: 0.0
+      pitch: 0.0
+      yaw: 0.0
+    imu_to_joint: # 描述的是在joint系下的c板中心
+      x: -0.02134
+      y: 0.0
+      z: 0.01
+      roll: 0.0
+      pitch: 0.0
+      yaw: 0.0
+    gunpoint_to_joint: # 在变换后的joint系下再沿着joint的xyz移动
+      x: 3.51 # mid360：枪口向前为x，左侧为y，所以这里应该移动x，和上面的camera_to_joint一致
+      y: 0.0
+      z: 0.01
+      roll: 0.0
+      pitch: 0.0
+      yaw: -1.5708 # mid360雷达的y轴在x左侧，x为枪管方向向前。需求是枪口方向是y，枪口右侧是x。因此绕y轴旋转-90度
+    downsampled_pcd_file: "/home/robot/hnurm_Hero/src/hnurm_bringup/TF/map/downtest.pcd"
+    target_x: 0.0
+    target_y: 0.0
+    target_z: 0.0
+
+    if_dynamic_pitch: true
+    recv_topic: "vision_recv_data"
+    current_pointcloud_topic: "current_pointcloud" # "/livox/lidar"
+
+    #joint_link 坐标系:           gunpoint_link 坐标系 (旋转后):
+    #  Y(左)                       Y(前=枪管)
+    #   |                            |
+    #   |                            |
+    #   |____ X(前,枪管)              |____ X(右)
+    #  /                            /
+    # Z(上)                         Z(上)

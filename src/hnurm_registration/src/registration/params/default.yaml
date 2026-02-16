@@ -1,0 +1,72 @@
+/**:
+  ros__parameters:
+    pointcloud_sub_topic: "/livox/lidar" 
+    trigger_hero_service_name: "/trigger_hero_relocation" # 服务名
+    decision_reset_topic: "/change_registration_status" # 决策节点发布的状态，用于决策发过来过完起伏路段之后reset
+    pcd_file: "/home/robot/hnurm_Hero/src/hnurm_registration/src/registration/map/raw.pcd"
+    downsampled_pcd_file: "/home/robot/hnurm_Hero/src/hnurm_registration/src/registration/map/downtest.pcd"
+    # 降采样，减少点云数量，提高配准速度
+    generate_downsampled_pcd: false   # please turn this off when using registration
+
+    init_accumulation_counter : 10             # LC 新增：初始状态积累点云数量
+    track_accumulation_counter : 3             # LC 新增：跟踪状态积累点云数量,也是初次配准gicp取的帧数,必须保证track<init
+    reset_accumulation_counter : 5             # LC 新增：重置状态积累点云数量
+
+    hero_qua_accumulation_counter : 10             # 英雄部署模式积累点云数量
+    hero_gicp_accumulation_counter : 10             # 英雄部署模式gicp积累点云数量
+
+    hero_gicp_running_counter_threshold: 3             # 英雄部署模式gicp运行次数阈值
+
+    # 普通跟踪阶段small_gicp 配准参数#################################################################
+    gicp_num_threads: 1                      # 线程数
+    gicp_num_neighbors: 20                   
+    gicp_max_dist_sq: 0.5                    # 距离阈值平方
+    gicp_max_iterations: 20             # 最大迭代次数（默认通常是30-50）
+    ## 收敛阈值
+    gicp_convergence_translation_tolerance: 1e-3    # 平移收敛阈值（单位：m）
+    gicp_convergence_rotation_tolerance: 1e-2       # 旋转收敛阈值（单位：rad
+    
+    tracking_frequency_divisor: 1       # 跟踪阶段每收到几帧进行一次gicp，用于控制gicp频率，控制资源消耗，注意要大于等于1
+
+    gicp_voxel_size: 0.25               # gicp配准下采样
+    quatro_voxel_size: 0.25             # quatro配准下采样
+
+    # 英雄部署模式定位 配准参数#################################################################
+    gicp2_num_threads: 3                             # 线程数
+    gicp2_num_neighbors: 20                   
+    gicp2_max_dist_sq: 0.25                          # 距离阈值平方
+    gicp2_max_iterations: 30                         # 最大迭代次数（默认通常是30-50）
+    gicp2_convergence_translation_tolerance: 1e-4    # 平移收敛阈值（单位：m）
+    gicp2_convergence_rotation_tolerance: 1e-3       # 旋转收敛阈值（单位：rad）
+
+    gicp2_voxel_size: 0.25               # gicp配准下采样
+    quatro2_voxel_size: 0.25             # quatro配准下采样
+
+    #################################################################################################
+
+    map_voxel_size: 0.25                # 全局点云下采样，map降采样数值和配准的（quatro/gicp）一般不相同，差距2倍以下即可，一般map的比较大，配准的比较小
+
+    #initial guess
+    #self_blue:
+      #initial_pose: [0.0,0.0,0.0,  0.0,0.0,0.0,1.0]
+    #self_red:
+      #initial_pose: [0.0,0.0,0.0,  0.0,0.0,0.0,1.0]
+
+    #method selector
+    #use_fixed: true                   # 是否使用固定初始位姿，比赛使用，如果是
+   #use_quatro: true                   # 是否使用quatro
+    test_cloud_registered: true        # 是否测试点云回调频率
+    use_rviz_revise: false             # 初始位姿是不是通过rviz手动调整的
+    use_hero_individual: true          # 是否使用英雄部署模式单独定位
+
+    #quatro params
+    m_rotation_max_iter: 200
+    m_num_max_corres: 100 
+    m_normal_radius: 0.5 
+    m_fpfh_radius: 1.2 
+    m_distance_threshold: 30.0 
+    m_noise_bound: 0.2 
+    m_rotation_gnc_factor: 1.39 
+    m_rotation_cost_thr: 0.0001 
+    m_estimate_scale: false 
+    m_use_optimized_matching: true 

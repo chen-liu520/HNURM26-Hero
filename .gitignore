@@ -1,0 +1,17 @@
+# 忽略目录
+log/
+build/
+install/
+.vscode/
+.marscode/
+
+# 忽略编译文件
+*.o
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+
+# 忽略pcd文件
+*.pcd
