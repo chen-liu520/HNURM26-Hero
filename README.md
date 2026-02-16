@@ -15,3 +15,9 @@ map -> odom           base_link -> base_footprint ......
 ```
 2. 现在会启动三个rviz，到时候看需要删掉哪个
     - 有FASTLIVO2、重定位（看点云配准效果）、TF树可视化
+3. 注意改话题，yaml里有几个话题参数
+4. 如果要可视化，注意rviz里也要改相应话题、坐标系的参数和名字
+5. **编译创建软链接--symlink-install**
+```bash
+colcon build --symlink-install
+```
