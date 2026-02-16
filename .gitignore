@@ -1,0 +1,35 @@
+# VS Code
+.vscode/
+
+# MarsCode
+.marscode/
+
+# ROS 2 build artifacts
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.log
+
+# Point Cloud Data
+*.pcd

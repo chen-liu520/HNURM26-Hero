@@ -1,0 +1,9 @@
+uint8 color
+Point2D32 top
+Point2D32 center
+Point2D32 bottom
+Point2D32 size
+float64 length
+float64 width
+float32 tilt_angle
+float32 angle

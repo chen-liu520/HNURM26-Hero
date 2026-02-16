@@ -1,0 +1,48 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>registration</name>
+  <version>0.0.0</version>
+  <description>Point cloud registration using Quatro and GICP</description>
+  <maintainer email="15123531860@163.com">robot</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- 核心依赖 -->
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+
+  <!-- TF 相关 -->
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_eigen</depend>
+  <depend>tf2_geometry_msgs</depend>
+
+  <!-- PCL 相关 -->
+  <depend>pcl</depend>
+  <depend>pcl_ros</depend>
+  <depend>pcl_conversions</depend>
+
+  <!-- 消息 -->
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>std_srvs</depend>
+
+  <!-- 配准库 -->
+  <depend>quatro</depend>
+  <depend>teaserpp</depend>  <!-- ✅ 添加 -->
+  <depend>small_gicp</depend>  <!-- ✅ 添加 -->
+
+  <!-- 其他 -->
+  <depend>angles</depend>
+  <depend>Eigen3</depend>
+  <depend>message_filters</depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
