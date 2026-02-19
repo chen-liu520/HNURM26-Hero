@@ -100,6 +100,7 @@ namespace hnurm
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_registered_pub_; // 发布配准后的点云
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_pub_;            // 发布降采样的全局点云
         rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_pub_;                        // 发布状态
+        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr raw_lidar_pub_;             // 发布原始点云，来自/livox/lidar
         rclcpp::TimerBase::SharedPtr timer_;
 
         std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;

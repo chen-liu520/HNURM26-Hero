@@ -142,6 +142,8 @@ namespace hnurm
         pointcloud_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/global_pcd_map", 10);
         // 发布配准后的点云
         pointcloud_registered_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/pointcloud_registered", 10);
+        // 发布原始点云，发布话题为/registration/raw
+        raw_lidar_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/registration/raw", 10);
         // 发布状态，可能会给决策节点用，想法是reset状态急停，等待配准
         status_pub_ = this->create_publisher<std_msgs::msg::String>("/registration_status", 10);
         timer_ = this->create_wall_timer(std::chrono::milliseconds(1550), std::bind(&RelocationNode::timer_callback, this));
@@ -315,6 +317,14 @@ namespace hnurm
 
     void RelocationNode::pointcloud_sub_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     {
+        if (state_.load() == State::HERO || state_.load() == State::INIT || state_.load() == State::RESET)
+        {
+            sensor_msgs::msg::PointCloud2 raw_msg = *msg;
+            // 关键：将原始点云的frame_id改为aft_registered
+            // 这样RViz会应用 map->aft_registered TF，将其显示在配准后的位置
+            raw_msg.header.frame_id = "aft_registered";
+            raw_lidar_pub_->publish(raw_msg);
+        }
         if (test_cloud_registered_)
         {
             if (is_first_callback_)
