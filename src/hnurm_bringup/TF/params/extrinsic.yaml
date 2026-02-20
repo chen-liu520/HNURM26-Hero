@@ -49,7 +49,7 @@
     target_z: 0.0
 
     if_dynamic_pitch: true
-    recv_topic: "recv"
+    recv_topic: "vision_recv_data"
     
     #joint_link 坐标系:           gunpoint_link 坐标系 (旋转后):
     #  Y(左)                       Y(前=枪管)

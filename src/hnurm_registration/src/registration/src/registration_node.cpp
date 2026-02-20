@@ -139,7 +139,7 @@ namespace hnurm
         // 发布降采样的全局点云
         pointcloud_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/global_pcd_map", 10);
         // 发布配准后的点云
-        pointcloud_registered_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/pointcloud_registered", 10);
+        pointcloud_registered_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/registration/pointcloud_registered", 10);
         // 发布状态，可能会给决策节点用，想法是reset状态急停，等待配准
         status_pub_ = this->create_publisher<std_msgs::msg::String>("/registration_status", 10);
         timer_ = this->create_wall_timer(std::chrono::milliseconds(1550), std::bind(&RelocationNode::timer_callback, this));
@@ -461,7 +461,7 @@ namespace hnurm
         {
             registration = registration_;
 
-            RCLCPP_INFO(this->get_logger(), "函数relocalization：：small_gicp的normal模式配准，检查参数有没有正确传递：");
+            RCLCPP_INFO(this->get_logger(), "函数small_gicp_registration：：small_gicp的normal模式配准，检查参数有没有正确传递：");
             RCLCPP_INFO(get_logger(), "[Normal Mode] threads=%d, max_dist_sq=%.1e, max_iter=%d, trans_eps=%.1e, rot_eps=%.1e",
                         registration.reduction.num_threads,    // 线程数
                         registration.rejector.max_dist_sq,     // 最大距离平方
@@ -482,7 +482,7 @@ namespace hnurm
         {
             registration = super_registration_;
 
-            RCLCPP_BLUE(this->get_logger(), "函数relocalization：：small_gicp的HERO部署模式配准，检查参数有没有正确传递：");
+            RCLCPP_BLUE(this->get_logger(), "函数small_gicp_registration：：small_gicp的HERO部署模式配准，检查参数有没有正确传递：");
             RCLCPP_FATAL(get_logger(), "[Normal Mode] threads=%d, max_dist_sq=%.1e, max_iter=%d, trans_eps=%.1e, rot_eps=%.1e",
                          registration.reduction.num_threads,    // 线程数
                          registration.rejector.max_dist_sq,     // 最大距离平方
@@ -507,13 +507,13 @@ namespace hnurm
 
         if (state_.load() == State::TRACKING)
         {
-            RCLCPP_INFO(this->get_logger(), "函数relocalization：：small_gicp的tracking模式配准");
+            RCLCPP_INFO(this->get_logger(), "函数small_gicp_registration：：small_gicp的tracking模式配准");
             result = registration.align(*global_map_PointCovariance_, *source_cloud_PointCovariance_, *target_tree_, pre_result_);
         }
         // RESET + INIT是一个逻辑：使用quatro++进行初始积累，成功后切换到small_gicp
         else /*if(state_ == State::INIT)*/
         {
-            RCLCPP_INFO(this->get_logger(), "函数relocalization：：small_gicp的INIT/RESET模式配准");
+            RCLCPP_INFO(this->get_logger(), "函数small_gicp_registration：：small_gicp的INIT/RESET模式配准");
             result = registration.align(*global_map_PointCovariance_, *source_cloud_PointCovariance_, *target_tree_, initial_guess_);
 
             if (!result.converged /*&& !doFirstRegistration_*/)
@@ -521,7 +521,16 @@ namespace hnurm
                 RCLCPP_ERROR(get_logger(), "cannot do first registration,reset,result error:%f", result.error);
                 reset();
                 transform.header.frame_id = "map";
-                transform.child_frame_id = current_sum_cloud_->header.frame_id;
+                if (current_sum_cloud_->header.frame_id.empty())
+                {
+                    transform.child_frame_id = "odom";
+                    RCLCPP_WARN(get_logger(), "函数small_gicp_registration：：current_sum_cloud_-的frame_id为空，改为odom");
+                }
+                else
+                {
+                    RCLCPP_WARN(get_logger(), "函数small_gicp_registration：：current_sum_cloud_-的frame_id为：%s", current_sum_cloud_->header.frame_id.c_str());
+                    transform.child_frame_id = current_sum_cloud_->header.frame_id;
+                }
                 transform.transform = tf2::eigenToTransform(initial_guess_).transform;
                 transform.header.stamp = this->now();      // 添加时间戳
                 tf_broadcaster_->sendTransform(transform); // 发布
@@ -541,7 +550,14 @@ namespace hnurm
             // publish transform
             transform.header.stamp = this->now();
             transform.header.frame_id = "map";
-            transform.child_frame_id = current_sum_cloud_->header.frame_id;
+            
+            if (current_sum_cloud_->header.frame_id.empty()){
+                transform.child_frame_id = "odom";
+                RCLCPP_WARN(get_logger(), "函数small_gicp_registration：：current_sum_cloud_-的frame_id为空，改为odom");
+            }else{
+                RCLCPP_WARN(get_logger(), "函数small_gicp_registration：：current_sum_cloud_-的frame_id为：%s", current_sum_cloud_->header.frame_id.c_str());
+                transform.child_frame_id = current_sum_cloud_->header.frame_id;
+            }             
             transform.transform = tf2::eigenToTransform(T_map_odom).transform;
             RCLCPP_WARN(get_logger(), "函数relocalization：：!!!!!完成gicp配准，Published map->odom transform,result error:%f", result.error);
             transform.header.stamp = this->now();
@@ -550,7 +566,16 @@ namespace hnurm
             /***********************发布配准后的点云 start************************/
             sensor_msgs::msg::PointCloud2 current_cloud_pub_msg;
             pcl::toROSMsg(*current_sum_cloud_, current_cloud_pub_msg);
-            current_cloud_pub_msg.header.frame_id = current_sum_cloud_->header.frame_id;
+            if (current_sum_cloud_->header.frame_id.empty())
+            {
+                current_cloud_pub_msg.header.frame_id = "odom";
+                RCLCPP_WARN(get_logger(), "函数small_gicp_registration：：current_sum_cloud_-的frame_id为空，【发布配准后的点云，坐标系改为odom】");
+            }
+            else
+            {
+                RCLCPP_WARN(get_logger(), "函数small_gicp_registration：：current_sum_cloud_-的frame_id为：%s", current_sum_cloud_->header.frame_id.c_str());
+                current_cloud_pub_msg.header.frame_id = current_sum_cloud_->header.frame_id;
+            }
             current_cloud_pub_msg.header.stamp = this->now();
             pointcloud_registered_pub_->publish(current_cloud_pub_msg);
 

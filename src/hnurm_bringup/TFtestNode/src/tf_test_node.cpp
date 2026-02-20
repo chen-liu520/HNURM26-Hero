@@ -49,7 +49,7 @@ public:
         // 发布者
         vision_recv_pub_ = this->create_publisher<hnurm_interfaces::msg::VisionRecvData>("vision_recv_data", 10);
         odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("/aft_mapped_to_init", 10);
-        pointcloud_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_registration", 10);
+        pointcloud_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_registered", 10);
         
         // TF广播器
         tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(*this);

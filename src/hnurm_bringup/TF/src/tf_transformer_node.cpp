@@ -86,16 +86,16 @@ namespace hnurm
 
     void TfTransformer::init_and_static_transform()
     {
-        // 1. 加载下采样后的点云文件,读取坐标系
-        if (pcl::io::loadPCDFile<pcl::PointXYZ>(downsampled_pcd_file_, *global_map_downsampled_) == -1)
-        {
-            RCLCPP_ERROR(get_logger(), "Failed to load downsampled PCD file: %s", downsampled_pcd_file_.c_str());
-            return;
-        }
-        else
-        {
-            RCLCPP_INFO(get_logger(), "Successfully loaded downsampled PCD file: %s", downsampled_pcd_file_.c_str());
-        }
+        // // 1. 加载下采样后的点云文件,读取坐标系
+        // if (pcl::io::loadPCDFile<pcl::PointXYZ>(downsampled_pcd_file_, *global_map_downsampled_) == -1)
+        // {
+        //     RCLCPP_ERROR(get_logger(), "Failed to load downsampled PCD file: %s", downsampled_pcd_file_.c_str());
+        //     return;
+        // }
+        // else
+        // {
+        //     RCLCPP_INFO(get_logger(), "Successfully loaded downsampled PCD file: %s", downsampled_pcd_file_.c_str());
+        // }
 
         // 创建一个静态变换通用数据结构，用于存储所有变换信息
         geometry_msgs::msg::TransformStamped static_transform;
@@ -103,26 +103,33 @@ namespace hnurm
         // 定义一个四元数对象，用于存储旋转信息
         tf2::Quaternion q;
 
-        // 2. 静态变换 全局点云地图frame_id -> map：完全重合
-        std::string map_parent = global_map_downsampled_->header.frame_id;
-        if (map_parent.empty())
-        {
-            map_parent = "global_map"; // 使用默认值
-            RCLCPP_WARN(get_logger(), "PCD file has no frame_id, using default: %s", map_parent.c_str());
-        }
-        static_transform.header.frame_id = map_parent; // 父坐标系
-        static_transform.child_frame_id = "map";                                     // 子坐标系
-        static_transform.transform.translation.x = 0.0;
-        static_transform.transform.translation.y = 0.0;
-        static_transform.transform.translation.z = 0.0;
-        static_transform.transform.rotation.x = 0.0;
-        static_transform.transform.rotation.y = 0.0;
-        static_transform.transform.rotation.z = 0.0;
-        static_transform.transform.rotation.w = 1.0;
-        static_broadcaster_->sendTransform(static_transform);
+        // // 2. 静态变换 全局点云地图frame_id -> map：完全重合
+        // std::string map_parent = global_map_downsampled_->header.frame_id;
+        // if (map_parent.empty())
+        // {
+        //     map_parent = "global_map"; // 使用默认值
+        //     RCLCPP_WARN(get_logger(), "PCD file has no frame_id, using default: %s", map_parent.c_str());
+        // }
+        // static_transform.header.frame_id = map_parent; // 父坐标系
+        // static_transform.child_frame_id = "map";                                     // 子坐标系
+        // static_transform.transform.translation.x = 0.0;
+        // static_transform.transform.translation.y = 0.0;
+        // static_transform.transform.translation.z = 0.0;
+        // static_transform.transform.rotation.x = 0.0;
+        // static_transform.transform.rotation.y = 0.0;
+        // static_transform.transform.rotation.z = 0.0;
+        // static_transform.transform.rotation.w = 1.0;
+        // static_broadcaster_->sendTransform(static_transform);
 
         // 3. 静态变换  实时点云坐标系：雷达开机位置/cloud_registration frame_id -> odom：完全重合
         static_transform.header.frame_id = pointcloud_registrated_->header.frame_id; // 父坐标系
+        if(static_transform.header.frame_id.empty())
+        {
+            static_transform.header.frame_id = "camera_init"; // 使用默认值
+            RCLCPP_WARN(get_logger(), "PointCloud2 message has no frame_id, using default: %s", static_transform.header.frame_id.c_str());
+        }else{
+            RCLCPP_FATAL(get_logger(), "PointCloud2 message has frame_id: %s, using it as parent frame", static_transform.header.frame_id.c_str());
+        }
         static_transform.child_frame_id = "odom";                                    // 子坐标系
         static_transform.transform.translation.x = 0.0;
         static_transform.transform.translation.y = 0.0;
@@ -179,7 +186,7 @@ namespace hnurm
     void TfTransformer::timer_callback()
     {
         /*tf tree
-        down_cloud  regis_cloud-->aft_mapped                                extrinsic
+        down_cloud  camera_init-->aft_mapped                                extrinsic
             |           |                                                       |
             |           |                                                       |
            map  -->   odom  -->  base_link  -->  base_footprint --> joint_link --> gunpoint_link --> gunpoint_horizontal
@@ -363,8 +370,8 @@ namespace hnurm
             target_gunpoint.point.y = target_in_gunpoint.y();
             target_gunpoint.point.z = target_in_gunpoint.z();
 
-            RCLCPP_ERROR(this->get_logger(),
-                        "Target in gunpoint_horizontal: x=%.3f, y=%.3f, z=%.3f",
+            RCLCPP_INFO(this->get_logger(),
+                        "\033[1;34mTarget in gunpoint_horizontal: x=%.3f, y=%.3f, z=%.3f\033[0m",
                         target_in_gunpoint.x(), target_in_gunpoint.y(), target_in_gunpoint.z());
 
             // 发布向 gunpoint_link 指向目标点的向量

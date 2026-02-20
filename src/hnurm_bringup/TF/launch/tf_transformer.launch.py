@@ -35,11 +35,11 @@ def generate_launch_description():
             parameters=[params_file]
         ),
         # 启动 RViz2 并加载 tf.rviz 配置
-        Node(
-            package='rviz2',
-            executable='rviz2',
-            name='rviz2',
-            output='screen',
-            arguments=['-d', rviz_config_path]
-        )
+        # Node(
+        #     package='rviz2',
+        #     executable='rviz2',
+        #     name='rviz2',
+        #     output='screen',
+        #     arguments=['-d', rviz_config_path]
+        # )
     ])
