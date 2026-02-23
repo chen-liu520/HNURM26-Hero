@@ -1,0 +1,32 @@
+# IDE
+.vscode/
+.marscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build directories
+build/
+install/
+log/
+
+# ROS2
+.colcon/
+colcon-*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# CMake
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+
+# Misc
+.DS_Store
+*.log
