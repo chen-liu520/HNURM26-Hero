@@ -27,4 +27,4 @@ colcon build --symlink-install
 6. 我猜测FAST-LIVO2的漂移并不严重，后续回去可以直接摇人晃动车去看里程计是否有问题
 7. 后续分支：
     - 改FAST-LIVO2源码，名字：`fix_LIVO2`
-    - 增加一版只用FAST-LIVO2，不使用重定位，名字：`only_LIVO2`
+    - 增加一版只用FAST-LIVO2，不使用重定位，名字：`only_LIVO`
