@@ -52,21 +52,15 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: true
-        aft_mapped:
-          Value: true
         base_footprint:
           Value: true
         base_link:
-          Value: true
-        camera_init:
           Value: true
         gunpoint_horizontal:
           Value: true
         gunpoint_link:
           Value: true
         joint_link:
-          Value: true
-        livox_frame:
           Value: true
         map:
           Value: true
@@ -80,16 +74,12 @@ Visualization Manager:
       Tree:
         map:
           odom:
-            camera_init:
-              aft_mapped:
-                base_link:
-                  base_footprint:
-                    joint_link:
-                      gunpoint_link:
-                        gunpoint_horizontal:
-                          {}
-          livox_frame:
-            {}
+            base_link:
+              base_footprint:
+                joint_link:
+                  gunpoint_link:
+                    gunpoint_horizontal:
+                      {}
       Update Interval: 0
       Value: true
     - Alpha: 1
