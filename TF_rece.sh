@@ -62,6 +62,6 @@ $TERMINAL $TERMINAL_OPTS "
     echo '==================================='
     echo '  tf_transformer + RViz'
     echo '==================================='
-    ros2 launch tf_transformer tf_transformer.launch.py
+    ros2 launch tf_transformer tf_transformer_rviz.launch.py
     exec bash
 " &
