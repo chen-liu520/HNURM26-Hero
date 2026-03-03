@@ -28,3 +28,5 @@ colcon build --symlink-install
 7. 后续分支：
     - 改FAST-LIVO2源码，名字：`fix_LIVO2`
     - 增加一版只用FAST-LIVO2，不使用重定位，名字：`only_LIVO`
+## 进度
+- 2026.3.3：完成上车第一版：LIVO2 + Qautro + small-gicp，效果很好，但是非常消耗资源，经过优化后，CPU有一半多的核心占用率再30%左右，其他较高再90%左右
