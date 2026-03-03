@@ -1,0 +1,21 @@
+/**:
+  ros__parameters:
+    channel_delay: 0.0
+
+    recv_topic: "vision_recv_data"
+    send_topic: "vision_send_data"
+
+    use_control_id: false
+    control_id: -1.0 # or -1
+
+    use_distribution: true
+    master_ns: main   #no use master ns to distribute
+    slave_ns: back_camera
+    decision_send_topic: "/decision/vision_send_data"
+    back_target: "/back_target"
+
+    # 串口发送速度指令订阅话题：
+    # - 使用决策节点速度重映射：/cmd_vel_remap（默认）
+    # - 直接调试 Nav2（常见）：/cmd_vel
+    # - 若 navigation_launch.py 非 composition 分支启用 cmd_vel->cmd_vel_nav：/cmd_vel_nav
+    twist_topic: "/cmd_vel"

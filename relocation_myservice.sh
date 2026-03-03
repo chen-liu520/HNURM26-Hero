@@ -11,27 +11,22 @@ echo "=========================================="
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE_DIR="$SCRIPT_DIR"
 
-echo "[1/5] 启动雷达驱动 (Livox MID360)..."
-gnome-terminal -- bash -c "source $WORKSPACE_DIR/install/setup.bash && ros2 launch livox_ros_driver2 msg_MID360_launch.py; exec bash"
+echo "[1/4] 启动雷达驱动 (Livox MID360)..."
+gnome-terminal -- bash -c "cd /home/rm/nav2 && source install/setup.bash && ros2 launch livox_ros_driver2 msg_MID360_launch.py; exec bash"
 
-sleep 2
+sleep 3
 
-echo "[2/5] 启动 FAST_LIVO2 里程计..."
-gnome-terminal -- bash -c "source $WORKSPACE_DIR/install/setup.bash && ros2 launch fast_livo mapping_mid360.launch.py; exec bash"
-
-sleep 2
-
-echo "[3/5] 启动重定位节点..."
+echo "[2/4] 启动重定位节点..."
 gnome-terminal -- bash -c "source $WORKSPACE_DIR/install/setup.bash && ros2 launch registration registration_rviz.launch.py; exec bash"
 
-sleep 2
+sleep 1
 
-echo "[4/5] 启动 TF树..."
+echo "[3/4] 启动 TF树..."
 gnome-terminal -- bash -c "source $WORKSPACE_DIR/install/setup.bash && ros2 launch tf_transformer tf_transformer.launch.py; exec bash"
 
-sleep 2
+sleep 1
 
-echo "[5/5] 启动 trigger 节点..."
+echo "[4/4] 启动 trigger 节点..."
 gnome-terminal -- bash -c "source $WORKSPACE_DIR/install/setup.bash && ros2 run trigger_registration trigger_hero_node; exec bash"
 
 echo "=========================================="

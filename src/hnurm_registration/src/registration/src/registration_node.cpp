@@ -26,8 +26,8 @@ namespace hnurm
 
         /*****************普通模式 gicp参数 start***************/
         gicp_num_threads_ = this->declare_parameter("gicp_num_threads", 4);
-        gicp_num_neighbors_ = this->declare_parameter("num_neighbors", 20);
-        gicp_max_dist_sq_ = this->declare_parameter("max_dist_sq", 1.0);
+        gicp_num_neighbors_ = this->declare_parameter("gicp_num_neighbors", 20);
+        gicp_max_dist_sq_ = this->declare_parameter("gicp_max_dist_sq", 1.0);
         gicp_max_iterations_ = this->declare_parameter("gicp_max_iterations", 50);                                         // 最大迭代次数（默认通常是30 - 50）##收敛阈值
         gicp_convergence_translation_tolerance_ = this->declare_parameter("gicp_convergence_translation_tolerance", 1e-4); // 平移收敛阈值（单位：m）
         gicp_convergence_rotation_tolerance_ = this->declare_parameter("gicp_convergence_rotation_tolerance", 1e-4);       // 旋转收敛阈值（单位：rad）
@@ -557,6 +557,35 @@ namespace hnurm
             transform.header.stamp = this->now();
             tf_broadcaster_->sendTransform(transform);
 
+            // 计算平均误差，更直观的配准质量指标
+            double avg_error = result.num_inliers > 0 ? result.error / result.num_inliers : 0.0;
+            // 计算内点率 (inlier ratio)
+            size_t total_points = source_cloud_PointCovariance_->size();
+            double inlier_ratio = total_points > 0 ? static_cast<double>(result.num_inliers) / total_points : 0.0;
+            // 计算欧式距离RMSE
+            double rmse = result.num_inliers > 0 ? std::sqrt(result.error / result.num_inliers) : 0.0;
+
+            RCLCPP_WARN(get_logger(), "\033[35mGICP配准成功! 总error:%.2f, inliers:%ld/%ld (%.2f%%), 平均error:%.4f, RMSE:%.4f, 迭代次数:%ld\033[0m",
+                        result.error, result.num_inliers, total_points, inlier_ratio * 100.0, avg_error, rmse, result.iterations);
+
+            // 配准质量评估
+            if (avg_error < 0.05)
+            {
+                RCLCPP_INFO(get_logger(), "配准质量: 优秀 (avg_error < 0.05)");
+            }
+            else if (avg_error < 0.15)
+            {
+                RCLCPP_INFO(get_logger(), "配准质量: 良好 (avg_error < 0.15)");
+            }
+            else if (avg_error < 0.3)
+            {
+                RCLCPP_WARN(get_logger(), "配准质量: 一般 (avg_error < 0.3)");
+            }
+            else
+            {
+                RCLCPP_ERROR(get_logger(), "配准质量: 较差 (avg_error >= 0.3)");
+            }
+
             /***********************发布配准后的点云 start************************/
             sensor_msgs::msg::PointCloud2 current_cloud_pub_msg;
             pcl::toROSMsg(*current_sum_cloud_, current_cloud_pub_msg);
@@ -595,7 +624,34 @@ namespace hnurm
             tf_broadcaster_->sendTransform(transform); // 发布
             RCLCPP_ERROR(get_logger(), "函数relocalization：：small_gicp配准失败，发布quatro结果作为fallback");
 
-            RCLCPP_ERROR(get_logger(), "Relocalization failed to converge,result error:%f", result.error);
+            // 计算平均误差，更直观的配准质量指标
+            double avg_error = result.num_inliers > 0 ? result.error / result.num_inliers : 0.0;
+            // 计算内点率 (inlier ratio)
+            size_t total_points = source_cloud_PointCovariance_->size();
+            double inlier_ratio = total_points > 0 ? static_cast<double>(result.num_inliers) / total_points : 0.0;
+            // 计算欧式距离RMSE
+            double rmse = result.num_inliers > 0 ? std::sqrt(result.error / result.num_inliers) : 0.0;
+
+            RCLCPP_WARN(get_logger(), "\033[35mGICP配准成功! 总error:%.2f, inliers:%ld/%ld (%.2f%%), 平均error:%.4f, RMSE:%.4f, 迭代次数:%ld\033[0m",
+                        result.error, result.num_inliers, total_points, inlier_ratio * 100.0, avg_error, rmse, result.iterations);
+
+            // 配准质量评估
+            if (avg_error < 0.05)
+            {
+                RCLCPP_INFO(get_logger(), "配准质量: 优秀 (avg_error < 0.05)");
+            }
+            else if (avg_error < 0.15)
+            {
+                RCLCPP_ERROR(get_logger(), "配准质量: 良好 (avg_error < 0.15)");
+            }
+            else if (avg_error < 0.3)
+            {
+                RCLCPP_ERROR(get_logger(), "配准质量: 一般 (avg_error < 0.3)");
+            }
+            else
+            {
+                RCLCPP_ERROR(get_logger(), "配准质量: 较差 (avg_error >= 0.3)");
+            }
         }
     }
 
@@ -828,24 +884,19 @@ namespace hnurm
 
                 auto protecting_vector = init_current_clouds_vector;
                 init_current_clouds_vector.clear();
-
-                RCLCPP_INFO(this->get_logger(), "开始多线程执行和GICP精确配准，将验证是否开启多线程");
-                /**/ t_start = std::chrono::steady_clock::now(); // 调试信息
                 quatro_future_ = std::async(std::launch::async, [this, protecting_vector, quatro_num]()
-                                            { 
+                { 
                     if(quatro_num == init_accumulation_counter_ || quatro_num == reset_accumulation_counter_){
-                        QUA_GICP_init_and_reset(protecting_vector, quatro_num, track_accumulation_counter_);
+                        QUA_GICP_init_and_reset_with_debug(protecting_vector, quatro_num, track_accumulation_counter_);
                     }else if(quatro_num == hero_qua_accumulation_counter_){
-                        QUA_GICP_init_and_reset(protecting_vector, quatro_num, hero_gicp_accumulation_counter_);
+                        QUA_GICP_init_and_reset_with_debug(protecting_vector, quatro_num, hero_gicp_accumulation_counter_);
                     }else{
                         RCLCPP_ERROR(this->get_logger(), "quatro_num 错误，不支持的配准类型");
                     }
 
 
                     is_QUAandGICP_running_.store(false); });
-                /**/ t_end = std::chrono::steady_clock::now();
-                /**/ elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start).count();                      // 调试信息
-                /**/ RCLCPP_WARN(this->get_logger(), "如果正常多线程，这里时间应该非常小，小于1ms，【所用时间】：%ld ms", elapsed_ms); // 调试信息
+                
             }
         }
     }
