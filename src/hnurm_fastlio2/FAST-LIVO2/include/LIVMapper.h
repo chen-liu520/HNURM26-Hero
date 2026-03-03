@@ -16,10 +16,11 @@ which is included as part of this source code package.
 #include "IMU_Processing.h"
 #include "vio.h"
 #include "preprocess.h"
-#if __has_include(<cv_bridge/cv_bridge.hpp>)
-#include <cv_bridge/cv_bridge.hpp>
-#else
+#include <atomic>
+#ifdef PRE_ROS_IRON
 #include <cv_bridge/cv_bridge.h>
+#else
+#include <cv_bridge/cv_bridge.hpp>
 #endif
 #include <image_transport/image_transport.hpp>
 #include <tf2_ros/transform_broadcaster.h>
@@ -30,12 +31,12 @@ which is included as part of this source code package.
 class LIVMapper
 {
 public:
-  LIVMapper(rclcpp::Node::SharedPtr &node, std::string node_name);
+  LIVMapper(rclcpp::Node::SharedPtr &node, std::string node_name, const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
   ~LIVMapper();
   void initializeSubscribersAndPublishers(rclcpp::Node::SharedPtr &nh, image_transport::ImageTransport &it_);
   void initializeComponents(rclcpp::Node::SharedPtr &node);
   void initializeFiles();
-  void run(rclcpp::Node::SharedPtr &node);
+  void run(rclcpp::Node::SharedPtr &node, std::atomic<bool>& shutdown_requested);
   void gravityAlignment();
   void handleFirstFrame();
   void stateEstimationAndMapping();
@@ -49,7 +50,7 @@ public:
   void imu_prop_callback();
   void transformLidar(const Eigen::Matrix3d rot, const Eigen::Vector3d t, const PointCloudXYZI::Ptr &input_cloud, PointCloudXYZI::Ptr &trans_cloud);
   void pointBodyToWorld(const PointType &pi, PointType &po);
-  void RGBpointBodyLidarToIMU(PointType const *const pi, PointType *const po);
+ 
   void RGBpointBodyToWorld(PointType const *const pi, PointType *const po);
   void standard_pcl_cbk(const sensor_msgs::msg::PointCloud2::ConstSharedPtr &msg);
   void livox_pcl_cbk(const livox_ros_driver2::msg::CustomMsg::ConstSharedPtr &msg_in);
@@ -90,8 +91,8 @@ public:
   double _first_lidar_time = 0.0;
   double match_time = 0, solve_time = 0, solve_const_H_time = 0;
 
-  bool lidar_map_inited = false, pcd_save_en = false, img_save_en = false, pub_effect_point_en = false, pose_output_en = false, ros_driver_fix_en = false, hilti_en = false;
-  int img_save_interval = 1, pcd_save_interval = -1, pcd_save_type = 0;
+  bool lidar_map_inited = false, pcd_save_en = false, pub_effect_point_en = false, pose_output_en = false, ros_driver_fix_en = false;
+  int pcd_save_interval = -1, pcd_index = 0;
   int pub_scan_num = 1;
 
   StatesGroup imu_propagate, latest_ekf_state;
@@ -103,7 +104,6 @@ public:
   nav_msgs::msg::Odometry imu_prop_odom;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pubImuPropOdom;
   double imu_time_offset = 0.0;
-  double lidar_time_offset = 0.0;
 
   bool gravity_align_en = false, gravity_align_finished = false;
 
@@ -145,7 +145,7 @@ public:
   PointCloudXYZRGB::Ptr pcl_wait_save;
   PointCloudXYZI::Ptr pcl_wait_save_intensity;
 
-  ofstream fout_pre, fout_out, fout_visual_pos, fout_lidar_pos, fout_points;
+  ofstream fout_pre, fout_out, fout_pcd_pos, fout_points;
 
   pcl::VoxelGrid<PointType> downSizeFilterSurf;
 
@@ -190,5 +190,6 @@ public:
   double aver_time_icp = 0;
   double aver_time_map_inre = 0;
   bool colmap_output_en = false;
+  bool pcd_saved_flag_ = false;  // Prevent duplicate save
 };
 #endif

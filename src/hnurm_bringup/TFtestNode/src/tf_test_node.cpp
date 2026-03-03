@@ -150,7 +150,6 @@ private:
         recv_msg.self_color.data = 0;      // COLOR_NONE
         recv_msg.work_mode.data = 0;       // AUTO_SHOOT
         recv_msg.bullet_speed.data = 0;    // BULLE_SPEED_NONE
-        recv_msg.gesture.data = 0;         // ATTACK
         
         // 设置RPY角度（只有pitch可变）
         recv_msg.roll = 0.0;

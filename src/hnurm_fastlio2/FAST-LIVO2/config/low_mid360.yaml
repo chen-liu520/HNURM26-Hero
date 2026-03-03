@@ -50,11 +50,11 @@
       b_gyr_cov: 0.0001  
 
     lio:  
-      max_iterations: 5  # 最大迭代次数
+      max_iterations: 3  # 最大迭代次数
       dept_err: 0.02 
       beam_err: 0.05  
       min_eigen_value: 0.0025  
-      voxel_size: 0.8 
+      voxel_size: 1.0 
       max_layer: 2 
       max_points_num: 30  
       layer_init_num: [5, 5, 5, 5, 5]  

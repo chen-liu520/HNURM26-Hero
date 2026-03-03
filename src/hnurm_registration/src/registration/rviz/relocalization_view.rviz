@@ -59,15 +59,18 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        global_map:
-          map:
-            aft_registered:
-              base_link:
-                base_footprint:
-                  joint_link:
-                    gunpoint_link:
-                      gunpoint_horizontal:
-                        {}
+        map:
+          odom:
+            camera_init:
+              aft_mapped:
+                base_link:
+                  base_footprint:
+                    joint_link:
+                      gunpoint_link:
+                        gunpoint_horizontal:
+                          {}
+          livox_frame:
+            {}
       Update Interval: 0
       Value: true
     

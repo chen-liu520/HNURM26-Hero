@@ -19,8 +19,9 @@ which is included as part of this source code package.
 #include <condition_variable>
 #include <nav_msgs/msg/odometry.hpp>
 #include <utils/so3_math.h>
-#include <fstream>
-extern const bool time_list(PointType &x, PointType &y);
+
+const bool time_list(PointType &x,
+                     PointType &y); //{return (x.curvature < y.curvature);};
 
 /// *************IMU Process and undistortion
 class ImuProcess

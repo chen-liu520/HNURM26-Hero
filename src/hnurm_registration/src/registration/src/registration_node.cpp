@@ -26,8 +26,8 @@ namespace hnurm
 
         /*****************普通模式 gicp参数 start***************/
         gicp_num_threads_ = this->declare_parameter("gicp_num_threads", 4);
-        gicp_num_neighbors_ = this->declare_parameter("num_neighbors", 20);
-        gicp_max_dist_sq_ = this->declare_parameter("max_dist_sq", 1.0);
+        gicp_num_neighbors_ = this->declare_parameter("gicp_num_neighbors", 20);
+        gicp_max_dist_sq_ = this->declare_parameter("gicp_max_dist_sq", 1.0);
         gicp_max_iterations_ = this->declare_parameter("gicp_max_iterations", 50);                                         // 最大迭代次数（默认通常是30 - 50）##收敛阈值
         gicp_convergence_translation_tolerance_ = this->declare_parameter("gicp_convergence_translation_tolerance", 1e-4); // 平移收敛阈值（单位：m）
         gicp_convergence_rotation_tolerance_ = this->declare_parameter("gicp_convergence_rotation_tolerance", 1e-4);       // 旋转收敛阈值（单位：rad）
@@ -54,6 +54,7 @@ namespace hnurm
         reset_accumulation_counter_ = this->declare_parameter("reset_accumulation_counter", 5);          // 新添加
         hero_qua_accumulation_counter_ = this->declare_parameter("hero_qua_accumulation_counter", 10);   // 英雄部署模式积累点云数量
         hero_gicp_accumulation_counter_ = this->declare_parameter("hero_gicp_accumulation_counter", 10); // 英雄部署模式gicp积累点云数量
+        tracking_frequency_divisor_ = this->declare_parameter("tracking_frequency_divisor", 1);  // 跟踪阶段每收到几帧进行一次gicp，默认每帧都进行
 
         // method selector
         test_cloud_registered_ = this->declare_parameter("test_cloud_registered", false);
@@ -91,6 +92,8 @@ namespace hnurm
             RCLCPP_INFO(get_logger(), "get params: m_use_optimized_matching = true");
         else
             RCLCPP_INFO(get_logger(), "get params: m_use_optimized_matching = false");
+
+        RCLCPP_INFO(get_logger(), "get params: tracking_frequency_divisor_ =%d", tracking_frequency_divisor_);
 
         // set quatro params && initialize handler
         m_quatro_handler = std::make_shared<quatro<QuatroPointType>>(m_normal_radius_,
@@ -167,7 +170,7 @@ namespace hnurm
             geometry_msgs::msg::Transform trans_;
             trans_.translation.x = msg->pose.pose.position.x;
             trans_.translation.y = msg->pose.pose.position.y;
-            trans_.translation.z = msg->pose.pose.position.z;
+            trans_.translation.z = 0.0;
             trans_.rotation.w = msg->pose.pose.orientation.w;
             trans_.rotation.x = msg->pose.pose.orientation.x;
             trans_.rotation.y = msg->pose.pose.orientation.y;
@@ -289,7 +292,7 @@ namespace hnurm
 
     void RelocationNode::update_deque_when_registration_thread_running(sensor_msgs::msg::PointCloud2::SharedPtr msg)
     {
-        RCLCPP_INFO(this->get_logger(), "update_deque_when_registration_thread_running：：单线程配准阶段，更新[traking]阶段的点云队列");
+        //RCLCPP_INFO(this->get_logger(), "update_deque_when_registration_thread_running：：单线程配准阶段，更新[traking]阶段的点云队列");
         auto current_cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
         pcl::fromROSMsg(*msg, *current_cloud);
         if (!is_queue_full_)
@@ -307,7 +310,7 @@ namespace hnurm
             // 滑动窗口核心：每接到新的一帧，剔除最开始的一帧，补充新的一帧，保持窗口大小不变后加和
             track_slide_window_clouds_queue.pop_front();
             track_slide_window_clouds_queue.push_back(current_cloud);
-            RCLCPP_INFO(this->get_logger(), "GICP_tracking 滑动窗口已更新，当前窗口大小：%ld", track_slide_window_clouds_queue.size());
+            //RCLCPP_INFO(this->get_logger(), "GICP_tracking 滑动窗口已更新，当前窗口大小：%ld", track_slide_window_clouds_queue.size());
         }
     }
 
@@ -365,7 +368,7 @@ namespace hnurm
         }
         else
         {
-            RCLCPP_WARN(get_logger(), "正在初始化/部署/重置配准中，当前点云在大配准流程中被丢弃，但更新[traking]阶段的点云队列");
+            //RCLCPP_WARN(get_logger(), "正在初始化/部署/重置配准中，当前点云在大配准流程中被丢弃，但更新[traking]阶段的点云队列");
             update_deque_when_registration_thread_running(msg);
         }
     }
@@ -559,23 +562,46 @@ namespace hnurm
                 transform.child_frame_id = current_sum_cloud_->header.frame_id;
             }             
             transform.transform = tf2::eigenToTransform(T_map_odom).transform;
-            RCLCPP_WARN(get_logger(), "函数relocalization：：!!!!!完成gicp配准，Published map->odom transform,result error:%f", result.error);
+            // 计算平均误差，更直观的配准质量指标
+            double avg_error = result.num_inliers > 0 ? result.error / result.num_inliers : 0.0;
+            // 计算内点率 (inlier ratio)
+            size_t total_points = source_cloud_PointCovariance_->size();
+            double inlier_ratio = total_points > 0 ? static_cast<double>(result.num_inliers) / total_points : 0.0;
+            // 计算欧式距离RMSE
+            double rmse = result.num_inliers > 0 ? std::sqrt(result.error / result.num_inliers) : 0.0;
+            
+            RCLCPP_WARN(get_logger(), "\033[35mGICP配准成功! 总error:%.2f, inliers:%ld/%ld (%.2f%%), 平均error:%.4f, RMSE:%.4f, 迭代次数:%ld\033[0m", 
+                        result.error, result.num_inliers, total_points, inlier_ratio * 100.0, avg_error, rmse, result.iterations);
+
+            // 配准质量评估
+            if (avg_error < 0.05) {
+                RCLCPP_INFO(get_logger(), "配准质量: 优秀 (avg_error < 0.05)");
+            } else if (avg_error < 0.15) {
+                RCLCPP_INFO(get_logger(), "配准质量: 良好 (avg_error < 0.15)");
+            } else if (avg_error < 0.3) {
+                RCLCPP_WARN(get_logger(), "配准质量: 一般 (avg_error < 0.3)");
+            } else {
+                RCLCPP_ERROR(get_logger(), "配准质量: 较差 (avg_error >= 0.3)");
+            }
+
             transform.header.stamp = this->now();
             tf_broadcaster_->sendTransform(transform);
 
             /***********************发布配准后的点云 start************************/
             sensor_msgs::msg::PointCloud2 current_cloud_pub_msg;
             pcl::toROSMsg(*current_sum_cloud_, current_cloud_pub_msg);
+            current_cloud_pub_msg.header.frame_id = "odom";
+            /*
             if (current_sum_cloud_->header.frame_id.empty())
             {
                 current_cloud_pub_msg.header.frame_id = "odom";
-                RCLCPP_WARN(get_logger(), "函数small_gicp_registration：：current_sum_cloud_-的frame_id为空，【发布配准后的点云，坐标系改为odom】");
+                RCLCPP_WARN(get_logger(), "函数small_gicp_registration：：current_sum_cloud_-的frame_id为空，【发布配准后的点云，坐标系改为map】");
             }
             else
             {
                 RCLCPP_WARN(get_logger(), "函数small_gicp_registration：：current_sum_cloud_-的frame_id为：%s", current_sum_cloud_->header.frame_id.c_str());
                 current_cloud_pub_msg.header.frame_id = current_sum_cloud_->header.frame_id;
-            }
+            }*/
             current_cloud_pub_msg.header.stamp = this->now();
             pointcloud_registered_pub_->publish(current_cloud_pub_msg);
 
@@ -717,13 +743,15 @@ namespace hnurm
             // 滑动窗口核心：每接到新的一帧，剔除最开始的一帧，补充新的一帧，保持窗口大小不变后加和
             track_slide_window_clouds_queue.pop_front();
             track_slide_window_clouds_queue.push_back(current_cloud);
-            RCLCPP_INFO(this->get_logger(), "GICP_tracking 滑动窗口已更新，当前窗口大小：%ld", track_slide_window_clouds_queue.size());
+            //RCLCPP_INFO(this->get_logger(), "GICP_tracking 滑动窗口已更新，当前窗口大小：%ld", track_slide_window_clouds_queue.size());
         }
 
         /****************************控制gicp频率*************************/
         gicp_run_counter_++;
         if (gicp_run_counter_ % tracking_frequency_divisor_ != 0)
         {
+            RCLCPP_WARN(this->get_logger(), "当前为GICP_tracking模式，但为了控制配准频率，当前运行次数为%d，未到达阈值整数倍%d，跳过本次配准", 
+            gicp_run_counter_, tracking_frequency_divisor_);
             return; // 如果运行次数没有到阈值整数倍，直接结束这个函数，不进行gicp
         }
 
@@ -733,7 +761,11 @@ namespace hnurm
         {
             *current_sum_cloud_for_gicp += *cloud;
         }
+        auto t_start = std::chrono::steady_clock::now();
         small_gicp_registration(current_sum_cloud_for_gicp, "normal");
+        auto t_end = std::chrono::steady_clock::now();
+        auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start).count();
+        RCLCPP_WARN(this->get_logger(), "【连续跟踪】small_gicp 配准所用时间：%ld ms", elapsed_ms);
     }
 
     void RelocationNode::accumulate_cloud_then_QUAandGICP(const sensor_msgs::msg::PointCloud2::SharedPtr msg, int quatro_num)
@@ -830,9 +862,9 @@ namespace hnurm
                 quatro_future_ = std::async(std::launch::async, [this, protecting_vector, quatro_num]()
                                             { 
                     if(quatro_num == init_accumulation_counter_ || quatro_num == reset_accumulation_counter_){
-                        QUA_GICP_init_and_reset(protecting_vector, quatro_num, track_accumulation_counter_);
+                        QUA_GICP_init_and_reset_with_debug(protecting_vector, quatro_num, track_accumulation_counter_);
                     }else if(quatro_num == hero_qua_accumulation_counter_){
-                        QUA_GICP_init_and_reset(protecting_vector, quatro_num, hero_gicp_accumulation_counter_);
+                        QUA_GICP_init_and_reset_with_debug(protecting_vector, quatro_num, hero_gicp_accumulation_counter_);
                     }else{
                         RCLCPP_ERROR(this->get_logger(), "quatro_num 错误，不支持的配准类型");
                     }

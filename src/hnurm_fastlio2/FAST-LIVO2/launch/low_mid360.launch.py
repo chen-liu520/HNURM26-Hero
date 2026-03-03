@@ -16,14 +16,14 @@ def generate_launch_description():
     rviz_config_file = os.path.join(get_package_share_directory("fast_livo"), "rviz_cfg", "fast_livo2.rviz")
 
     #这里我们修改加载的雷达参数配置文件：mid360.yaml
-    avia_config_cmd = os.path.join(config_file_dir, "mid360.yaml")
+    avia_config_cmd = os.path.join(config_file_dir, "low_mid360.yaml")
     #相机内参配置文件保持不变
     camera_config_cmd = os.path.join(config_file_dir, "camera_pinhole.yaml")  # 添加这行
 
     # 打开 use_rviz
     use_rviz_arg = DeclareLaunchArgument(
         "use_rviz",
-        default_value="True",
+        default_value="false",
         description="Whether to launch Rviz2",
     )
 

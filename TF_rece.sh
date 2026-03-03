@@ -3,7 +3,7 @@
 # TF 测试启动脚本
 # 在两个终端分别启动 tf_transformer 和 tf_test_node
 
-WORKSPACE_DIR="/home/robot/hnurm_Hero"
+WORKSPACE_DIR="/home/rm/hero_0/HNURM26-Hero"
 
 # 检查并 source ROS2 环境
 if [ -f "/opt/ros/humble/setup.bash" ]; then
@@ -63,5 +63,16 @@ $TERMINAL $TERMINAL_OPTS "
     echo '  tf_transformer + RViz'
     echo '==================================='
     ros2 launch tf_transformer tf_transformer_rviz.launch.py
+    exec bash
+" &
+
+# 终端2: 启动 hnurm_uart 串口节点
+$TERMINAL $TERMINAL_OPTS "
+    source /opt/ros/*/setup.bash 2>/dev/null || true
+    source $WORKSPACE_DIR/install/setup.bash
+    echo '==================================='
+    echo '  hnurm_uart 串口节点'
+    echo '==================================='
+    ros2 launch hnurm_uart hnurm_uart.launch.py
     exec bash
 " &

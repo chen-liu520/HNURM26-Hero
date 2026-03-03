@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.10)
-cmake_policy(SET CMP0074 NEW)
 project(fast_livo)
 
 set(CMAKE_BUILD_TYPE "Release")
@@ -8,6 +7,37 @@ message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Detect ROS 2 version and set appropriate cv_bridge header
+if(DEFINED ENV{ROS_DISTRO})
+  set(ROS_DISTRO $ENV{ROS_DISTRO})
+  message(STATUS "ROS_DISTRO: ${ROS_DISTRO}")
+  if(${ROS_DISTRO} STRLESS "iron")
+    add_definitions(-DPRE_ROS_IRON)
+    message(STATUS "Detected pre-Iron ROS 2 (${ROS_DISTRO}), using cv_bridge.h")
+  else()
+    message(STATUS "Detected Iron or newer ROS 2 (${ROS_DISTRO}), using cv_bridge.hpp")
+  endif()
+else()
+  message(WARNING "ROS_DISTRO environment variable not set, trying to detect from rosversion")
+  # Fallback: try to detect from rosversion
+  execute_process(
+    COMMAND rosversion -d
+    OUTPUT_VARIABLE ROS_DISTRO
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+  )
+  if(ROS_DISTRO AND ${ROS_DISTRO} STRLESS "iron")
+    add_definitions(-DPRE_ROS_IRON)
+    message(STATUS "Detected pre-Iron ROS 2 (${ROS_DISTRO}), using cv_bridge.h")
+  elseif(ROS_DISTRO)
+    message(STATUS "Detected Iron or newer ROS 2 (${ROS_DISTRO}), using cv_bridge.hpp")
+  else()
+    # Default to pre-iron for safety with most common distributions
+    add_definitions(-DPRE_ROS_IRON)
+    message(STATUS "Could not detect ROS_DISTRO, defaulting to cv_bridge.h")
+  endif()
+endif()
 
 # Set common compile options
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -fexceptions")
@@ -97,7 +127,6 @@ find_package(PCL REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(Sophus REQUIRED)
 find_package(Boost REQUIRED COMPONENTS thread)
-find_package(fmt REQUIRED)
 
 # Include directories for dependencies
 include_directories(
@@ -127,7 +156,7 @@ set(dependencies
   livox_ros_driver2
 )
 
-set(COMMON_DEPENDENCIES OpenMP::OpenMP_CXX fmt::fmt)
+set(COMMON_DEPENDENCIES OpenMP::OpenMP_CXX)
 
 # link_directories(${COMMON_DEPENDENCIES}
 #   ${vikit_common_LIBRARIES}/libvikit_common.so
@@ -149,27 +178,28 @@ ament_target_dependencies(imu_proc ${dependencies})
 ament_target_dependencies(laser_mapping ${dependencies})
 
 # linking libraries or executables to public dependencies
-# target_link_libraries(laser_mapping 
-#     ${CMAKE_SOURCE_DIR}/../../install/vikit_common/lib/libvikit_common.so 
-#     ${CMAKE_SOURCE_DIR}/../../install/vikit_ros/lib/libvikit_ros.so
-#     ${COMMON_DEPENDENCIES}
-# )
+# Find vikit libraries properly
+find_library(VIKIT_COMMON_LIB vikit_common PATHS ${CMAKE_SOURCE_DIR}/../../install/vikit_common/lib)
+find_library(VIKIT_ROS_LIB vikit_ros PATHS ${CMAKE_SOURCE_DIR}/../../install/vikit_ros/lib)
+
+if(NOT VIKIT_COMMON_LIB)
+  message(FATAL_ERROR "Could not find libvikit_common.so. Make sure vikit_common is built and installed.")
+endif()
+if(NOT VIKIT_ROS_LIB)
+  message(FATAL_ERROR "Could not find libvikit_ros.so. Make sure vikit_ros is built and installed.")
+endif()
+
+message(STATUS "Found vikit_common: ${VIKIT_COMMON_LIB}")
+message(STATUS "Found vikit_ros: ${VIKIT_ROS_LIB}")
+
 target_link_libraries(laser_mapping 
-    vikit_common::vikit_common
-    vikit_ros::vikit_ros
+    ${VIKIT_COMMON_LIB}
+    ${VIKIT_ROS_LIB}
     ${COMMON_DEPENDENCIES}
 )
-target_link_libraries(vio 
-    vikit_common::vikit_common
-    vikit_ros::vikit_ros
-    ${COMMON_DEPENDENCIES}
-)
+target_link_libraries(vio ${COMMON_DEPENDENCIES})
 target_link_libraries(lio utils ${COMMON_DEPENDENCIES})
-target_link_libraries(pre 
-    vikit_common::vikit_common
-    vikit_ros::vikit_ros
-    ${COMMON_DEPENDENCIES}
-)
+target_link_libraries(pre ${COMMON_DEPENDENCIES})
 target_link_libraries(imu_proc ${COMMON_DEPENDENCIES})
 
 # Add the main executable
@@ -221,8 +251,6 @@ ament_export_dependencies(
   PCL
   OpenCV 
   Sophus
-  vikit_common
-  vikit_ros
 )
 
 ament_package()
