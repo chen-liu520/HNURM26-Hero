@@ -11,10 +11,13 @@ echo "=========================================="
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE_DIR="$SCRIPT_DIR"
 
-echo "[1/4] 启动雷达驱动 (Livox MID360)..."
-gnome-terminal -- bash -c "cd /home/rm/nav2 && source install/setup.bash && ros2 launch livox_ros_driver2 msg_MID360_launch.py; exec bash"
+echo "[0/4] 启动串口..."
+gnome-terminal -- bash -c "source $WORKSPACE_DIR/install/setup.bash && ros2 launch hnurm_uart hnurm_uart.launch.py; exec bash"
 
-sleep 3
+echo "[1/4] 启动雷达驱动 (Livox MID360)..."
+gnome-terminal -- bash -c "source $WORKSPACE_DIR/install/setup.bash && ros2 launch livox_ros_driver2 msg_MID360_launch.py; exec bash"
+
+sleep 5
 
 echo "[2/4] 启动重定位节点..."
 gnome-terminal -- bash -c "source $WORKSPACE_DIR/install/setup.bash && ros2 launch registration registration_rviz.launch.py; exec bash"

@@ -64,7 +64,7 @@ std::string Protocol::encode(const hnurm_interfaces::msg::VisionSendData &data)
     bits_flags = 0x00;
     //        bits_flags |= ((int) data.type << 4); // low-high 4bits for target type
     bits_flags |= (int)data.target_state.data;  // low-low 4bits for target state
-
+    bits_flags |= (int)data.gesture.data << 8;  // high byte for gesture
     f_arr[0] = data.pitch;
     f_arr[1] = data.yaw;
     f_arr[2] = data.vel_x;
@@ -140,7 +140,7 @@ bool Protocol::decode(const std::string &s, hnurm_interfaces::msg::VisionRecvDat
 
     get_protocol_info_vision(
         (uint8_t *)(&ch_arr[0]),  // start pos of received data string
-        &msg,                     // msg = (self_color: 4bits, work_mode: 4bits) | (bullet_speed: 4bits | NC: 4bits)
+        &msg,                     // msg = (self_color: 4bits, work_mode: 4bits) | (bullet_speed: 4bits | gesture: 4bits)
         f_arr                     // store the float data sent from STM32, currently no data
     );
 
@@ -151,17 +151,18 @@ bool Protocol::decode(const std::string &s, hnurm_interfaces::msg::VisionRecvDat
     // here we get float data .don't worry about different data length!
     // the protocol will handle changeable data length,as long as the length is smaller than 8
 
-    /*   ┌────────────────────────────────┬──────────────┬─────────────┐
-     *   │          bullet_speed          │  work_mode   │ self_color  │
-     *   └────────────────────────────────┴──────────────┴─────────────┘
-     *   0                               7 8           11 12           15
+    /*   ┌──────────────┬─────────────────┬──────────────┬─────────────┐
+     *   │    gesture   │   bullet_speed  │  work_mode   │ self_color  │
+     *   └──────────────┴─────────────────┴──────────────┴─────────────┘
+     *   0            3 4                7 8           11 12           15
      *
      */
 
     // just modify here , use displacement operation to get state code
     decoded_data.self_color.data   = msg & 0xf;
     decoded_data.work_mode.data    = (msg >> 4) & 0xf;
-    decoded_data.bullet_speed.data = (msg >> 8) & 0xff;
+    decoded_data.bullet_speed.data = (msg >> 8) & 0xf;
+    decoded_data.gesture.data      = (msg >> 12) & 0xf;
     decoded_data.yaw              = f_arr[0];
     decoded_data.pitch             = f_arr[1];
     decoded_data.roll              = f_arr[2];

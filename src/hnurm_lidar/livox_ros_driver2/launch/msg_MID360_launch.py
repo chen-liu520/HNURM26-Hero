@@ -12,11 +12,10 @@ publish_freq  = 10.0 # freqency of publish, 5.0, 10.0, 20.0, 50.0, etc.
 output_type   = 0
 frame_id      = 'livox_frame'
 lvx_file_path = '/home/livox/livox_test.lvx'
-cmdline_bd_code = 'livox0000000001'
+cmdline_bd_code = '47MDL5D001034'
 
 cur_path = os.path.split(os.path.realpath(__file__))[0] + '/'
 cur_config_path = cur_path + '../config'
-rviz_config_path = os.path.join(cur_config_path, 'display_point_cloud_ROS2.rviz')
 user_config_path = os.path.join(cur_config_path, 'MID360_config.json')
 ################### user configure parameters for ros2 end #####################
 
@@ -42,16 +41,8 @@ def generate_launch_description():
         parameters=livox_ros2_params
         )
 
-    livox_rviz = Node(
-            package='rviz2',
-            executable='rviz2',
-            output='screen',
-            arguments=['--display-config', rviz_config_path]
-        )
-
     return LaunchDescription([
         livox_driver,
-        livox_rviz,
         # launch.actions.RegisterEventHandler(
         #     event_handler=launch.event_handlers.OnProcessExit(
         #         target_action=livox_rviz,

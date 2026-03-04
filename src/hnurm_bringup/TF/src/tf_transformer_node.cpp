@@ -157,14 +157,8 @@ namespace hnurm
         static_transform.transform.rotation.w = q.w();
         static_broadcaster_->sendTransform(static_transform);
 
-        std::string bl_parent2 = pointcloud_registrated_->header.frame_id;
-        if (bl_parent2.empty())
-        {
-            bl_parent2 = "aft_registered"; // 使用默认值
-            RCLCPP_WARN(get_logger(), "PCD file has no frame_id, using default: %s", bl_parent2.c_str());
-        }
         // 5. pointcloud_registrated_ -> base_link，静态重合
-        static_transform.header.frame_id = bl_parent2;       // 父坐标系
+        static_transform.header.frame_id = "aft_registered";       // 父坐标系
         static_transform.child_frame_id = "base_link";       // 子坐标系
         static_transform.transform.translation.x = 0.0;
         static_transform.transform.translation.y = 0.0;
@@ -371,7 +365,8 @@ namespace hnurm
                 geometry_msgs::msg::TransformStamped tf = tf_buffer_->lookupTransform(
                     "map",
                     "base_link",
-                    tf2::TimePointZero // 最新可用变换
+                    tf2::TimePointZero, // 最新可用变换
+                    tf2::durationFromSec(0.2)
                 );
                 is_relocation_ready_ = true;
             }

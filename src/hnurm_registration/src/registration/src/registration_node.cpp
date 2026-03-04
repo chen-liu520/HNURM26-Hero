@@ -74,6 +74,7 @@ namespace hnurm
         m_estimate_scale_ = this->declare_parameter("m_estimate_scale", false);
         m_use_optimized_matching_ = this->declare_parameter("m_use_optimized_matching", true);
 
+        RCLCPP_INFO(get_logger(), "/033[][1;34m订阅话题名称：%s/033[0m", pointcloud_sub_topic_.c_str());
         /***************2. 参数打印 *************/
 
         RCLCPP_INFO(get_logger(), "use quatro mode,reading params......");
@@ -146,7 +147,7 @@ namespace hnurm
         raw_lidar_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/registration/raw", 10);
         // 发布状态，可能会给决策节点用，想法是reset状态急停，等待配准
         status_pub_ = this->create_publisher<std_msgs::msg::String>("/registration_status", 10);
-        timer_ = this->create_wall_timer(std::chrono::milliseconds(1550), std::bind(&RelocationNode::timer_callback, this));
+        timer_ = this->create_wall_timer(std::chrono::milliseconds(200), std::bind(&RelocationNode::timer_callback, this));
 
         init_current_clouds_vector.reserve(init_accumulation_counter_ + 10); // 只预留空间，不分配内存，不创建对象
 
@@ -293,7 +294,7 @@ namespace hnurm
 
     void RelocationNode::update_deque_when_registration_thread_running(sensor_msgs::msg::PointCloud2::SharedPtr msg)
     {
-        RCLCPP_INFO(this->get_logger(), "update_deque_when_registration_thread_running：：单线程配准阶段，更新[traking]阶段的点云队列");
+        //RCLCPP_INFO(this->get_logger(), "update_deque_when_registration_thread_running：：单线程配准阶段，更新[traking]阶段的点云队列");
         auto current_cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
         pcl::fromROSMsg(*msg, *current_cloud);
         if (!is_queue_full_)
@@ -311,7 +312,7 @@ namespace hnurm
             // 滑动窗口核心：每接到新的一帧，剔除最开始的一帧，补充新的一帧，保持窗口大小不变后加和
             track_slide_window_clouds_queue.pop_front();
             track_slide_window_clouds_queue.push_back(current_cloud);
-            RCLCPP_INFO(this->get_logger(), "GICP_tracking 滑动窗口已更新，当前窗口大小：%ld", track_slide_window_clouds_queue.size());
+            //RCLCPP_INFO(this->get_logger(), "GICP_tracking 滑动窗口已更新，当前窗口大小：%ld", track_slide_window_clouds_queue.size());
         }
     }
 
@@ -377,7 +378,7 @@ namespace hnurm
         }
         else
         {
-            RCLCPP_WARN(get_logger(), "正在初始化/部署/重置配准中，或者是车正在移动，当前点云在大配准流程中被丢弃，但更新[traking]阶段的点云队列");
+            //RCLCPP_WARN(get_logger(), "正在初始化/部署/重置配准中，或者是车正在移动，当前点云在大配准流程中被丢弃，但更新[traking]阶段的点云队列");
             update_deque_when_registration_thread_running(msg);
         }
     }
@@ -414,6 +415,16 @@ namespace hnurm
         }
         status_msg.data = state_str;
         status_pub_->publish(status_msg);
+
+        Eigen::Isometry3d T_map_aft_registered = pre_result_;
+
+        // publish transform
+        transform.header.stamp = this->now();
+        transform.header.frame_id = "map";
+        transform.child_frame_id = "aft_registered";
+        transform.transform = tf2::eigenToTransform(T_map_aft_registered).transform;
+        transform.header.stamp = this->now();
+        tf_broadcaster_->sendTransform(transform);
     }
 
     void RelocationNode::trigger_hero_callback(
@@ -547,13 +558,8 @@ namespace hnurm
             transform.header.stamp = this->now();
             transform.header.frame_id = "map";
             std::string frame_id2 = current_sum_cloud_->header.frame_id;
-            if (frame_id2.empty())
-            {
-                RCLCPP_INFO(get_logger(), "\033[1;34mcurrent_sum_cloud_->header.frame_id为空，设置为aft_registered\033[0m");
-                transform.child_frame_id = "aft_registered";
-            }
+            transform.child_frame_id = "aft_registered";
             transform.transform = tf2::eigenToTransform(T_map_aft_registered).transform;
-            RCLCPP_WARN(get_logger(), "函数relocalization：：!!!!!完成gicp配准，Published 【map->aft_registered】 transform,result error:%f", result.error);
             transform.header.stamp = this->now();
             tf_broadcaster_->sendTransform(transform);
 

@@ -8,16 +8,16 @@
       pitch: 0.0
       yaw: 0.0
     lidar_to_base: ##描述的是在base系下的mid360位置
-      x: -2.0 # 正常树值：-0.03
-      y: 1.0 # 正常树值：0.077
-      z: 4.0 # 正常树值：0.0601
+      x: -0.03 # 正常树值：-0.03
+      y: 0.077 # 正常树值：0.077
+      z: 0.0601 # 正常树值：0.0601
       roll: 0.0
       pitch: 0.0
       yaw: 0.0
     joint_to_base: #描述的是在base系下的joint位置
       x: 0.0
       y: 0.0
-      z: 5.0 # 正常树值：0.081
+      z: 0.081 # 正常树值：0.081
       roll: 0.0
       pitch: 0.0
       yaw: 0.0
@@ -37,7 +37,7 @@
       pitch: 0.0
       yaw: 0.0
     gunpoint_to_joint: # 在变换后的joint系下再沿着joint的xyz移动
-      x: 3.51 # mid360：枪口向前为x，左侧为y，所以这里应该移动x，和上面的camera_to_joint一致
+      x: 0.81 # mid360：枪口向前为x，左侧为y，所以这里应该移动x，和上面的camera_to_joint一致
       y: 0.0
       z: 0.01
       roll: 0.0

@@ -14,6 +14,7 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include <std_msgs/msg/bool.hpp>
+#include <mutex>
 namespace hnurm
 {
 struct init_imu
@@ -90,6 +91,10 @@ private:
     std::string decision_send_topic_ = "/decision/vision_send_data";
     std::string back_target_ = "/back_target";
     bool is_in_special_area = false;
+
+    std::mutex decision_cache_mutex_;
+    uint8_t cached_gesture_ = 0;
+    bool has_cached_gesture_ = false;
     
 
     float control_id_ = 0;

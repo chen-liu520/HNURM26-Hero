@@ -37,13 +37,6 @@
 #include <map>
 
 #include "lidar_imu_data_queue.h"
-#include <iostream>
-#include <fcntl.h>
-#include <sys/ipc.h>
-#include <sys/mman.h>
-#include <chrono>
-#include <unistd.h>
-
 
 namespace livox_ros {
 
@@ -140,7 +133,6 @@ typedef enum {
 typedef struct {
  uint8_t lidar_type {};
 } LidarSummaryInfo;
-
 
 /** 8bytes stamp to uint64_t stamp */
 typedef union {

@@ -130,9 +130,9 @@ void UartNode::decision_sub_callback(hnurm_interfaces::msg::VisionSendData::Shar
     msg->vel_x   = 2000.0;
     msg->vel_y   = 2000.0;
     msg->vel_yaw = 2000.0;
-    //  RCLCPP_INFO(logger, "send decision data");
-    // if(serial_codec_->send_data(*msg))
-    //     RCLCPP_INFO(logger, "send decision data");
+    std::lock_guard<std::mutex> lock(decision_cache_mutex_);
+    cached_gesture_ = msg->gesture.data;
+    has_cached_gesture_ = true;
 }
 
 void UartNode::special_area_callback(const std_msgs::msg::Bool::SharedPtr msg)
@@ -154,15 +154,25 @@ void UartNode::sub_callback(hnurm_interfaces::msg::VisionSendData::SharedPtr msg
 void UartNode::sub_twist_callback(geometry_msgs::msg::Twist::SharedPtr msg)
 {
     hnurm_interfaces::msg::VisionSendData send_data;
+
+    {
+        std::lock_guard<std::mutex> lock(decision_cache_mutex_);
+        if(has_cached_gesture_)
+        {
+            send_data.gesture.data = cached_gesture_;
+        }
+    }
+
     send_data.vel_x   = static_cast<float>(msg->linear.x);
     send_data.vel_y   = static_cast<float>(msg->linear.y);
     // send_data.control_id = 25.0;  //test
-        if (is_in_special_area)
+    if(is_in_special_area)
     {
         send_data.control_id = 25.0;
         send_data.vel_yaw = static_cast<float>(msg->linear.z);
     }
-    if(serial_codec_->send_data(send_data));
+    if(serial_codec_->send_data(send_data))
+        RCLCPP_DEBUG(logger, "send fused twist+decision data, gesture=%u", send_data.gesture.data);
         // RCLCPP_INFO(logger, "send data");
 }
 int counter = 0;
@@ -174,11 +184,11 @@ void UartNode::timer_callback()
     hnurm_interfaces::msg::VisionRecvData recv_data;
     if(serial_codec_->try_get_recv_data_for(recv_data))
     {
-        // 如果颜色未设置，手动设置为 RED
+        // early return
         if(recv_data.self_color.data == hnurm_interfaces::msg::SelfColor::COLOR_NONE)
         {
-            recv_data.self_color.data = hnurm_interfaces::msg::SelfColor::RED;
-            RCLCPP_INFO_ONCE(logger, "self color not set, manually set to RED");
+            RCLCPP_WARN(logger, "self color not set, ignoring this msg");
+            return;
         }
 
         // if(use_distribution_)

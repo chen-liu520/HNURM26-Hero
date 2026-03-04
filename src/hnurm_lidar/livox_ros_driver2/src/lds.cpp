@@ -45,25 +45,6 @@ Lds::Lds(const double publish_freq, const uint8_t data_src)
       data_src_(data_src),
       request_exit_(false) {
   ResetLds(data_src_);
-
-  //  std::string path_for_time_stamp = "/home/wilson/timeshare";
-
-  //   const char *shared_file_name = path_for_time_stamp.c_str();
-  //   int fd = open(shared_file_name, O_CREAT | O_RDWR | O_TRUNC, 0666);
-  //   if (fd == -1)
-  //   {
-  //       printf("****************open\n");
-  //   }
-  //   else
-  //   {
-  //       printf("open code: %d\n", fd);
-  //   }
-  //   lseek(fd, sizeof(time_stamp) * 1, SEEK_SET);
-  //   write(fd, "", 1);
-  //   pointt = (time_stamp *)mmap(NULL, sizeof(time_stamp) * 1,
-  //                               PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-
-
 }
 
 Lds::~Lds() {

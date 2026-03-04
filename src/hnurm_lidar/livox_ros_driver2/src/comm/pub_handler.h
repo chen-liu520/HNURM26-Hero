@@ -41,6 +41,15 @@
 
 namespace livox_ros {
 
+static ExtParameterDetailed extrinsic_global = {
+    {0, 0, 0},
+    {
+      {1, 0, 0},
+      {0, 1, 0},
+      {0, 0, 1}
+    }
+  };
+
 class LidarPubHandler {
  public:
   LidarPubHandler();
@@ -64,7 +73,7 @@ class LidarPubHandler {
     {0, 0, 0},
     {
       {1, 0, 0},
-      {0, 1, 1},
+      {0, 1, 0},
       {0, 0, 1}
     }
   };
