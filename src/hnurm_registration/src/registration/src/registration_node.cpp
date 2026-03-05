@@ -9,7 +9,7 @@
 namespace hnurm
 {
 #define RCLCPP_BLUE(logger, ...) \
-    RCLCPP_FATAL(logger, "\033[1;34m[BLUE][BLUE][BLUE][英雄][英雄][英雄] " __VA_ARGS__ "\033[0m")
+    RCLCPP_INFO(logger, "\033[1;34m[BLUE][BLUE][BLUE][英雄][英雄][英雄] " __VA_ARGS__ "\033[0m")
     RelocationNode::RelocationNode(const rclcpp::NodeOptions &options)
         : Node("relocation_node", options)
     {
@@ -19,6 +19,7 @@ namespace hnurm
         /***********1. 参数读取***************/
         pointcloud_sub_topic_ = this->declare_parameter("pointcloud_sub_topic", "/cloud_registered");
         trigger_hero_service_name_ = this->declare_parameter("trigger_hero_service_name", "/trigger_hero_relocation");
+        yaw_ready_topic_ = this->declare_parameter("yaw_ready_topic", "/deploy/yaw_ready");
 
         pcd_file_ = this->declare_parameter("pcd_file", "/home/rm/nav/src/hnunavigation_-ros2/hnurm_perception/PCD/all_raw_points.pcd");
         generate_downsampled_pcd_ = this->declare_parameter("generate_downsampled_pcd", false);
@@ -132,11 +133,15 @@ namespace hnurm
             rclcpp::SensorDataQoS(),
             std::bind(&RelocationNode::initial_pose_callback, this, std::placeholders::_1));
 
+        yaw_ready_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+            yaw_ready_topic_,
+            rclcpp::QoS(10).reliable(),
+            std::bind(&RelocationNode::yaw_ready_callback, this, std::placeholders::_1));
+
         // 服务端
         hero_trigger_service_ = this->create_service<std_srvs::srv::Trigger>(
             trigger_hero_service_name_, // 服务名
-            std::bind(&RelocationNode::trigger_hero_callback, this,
-                      std::placeholders::_1, std::placeholders::_2));
+            std::bind(&RelocationNode::trigger_hero_callback, this,std::placeholders::_1, std::placeholders::_2));
 
         // publishers
         // 发布降采样的全局点云
@@ -146,8 +151,10 @@ namespace hnurm
         // 发布原始点云，发布话题为/registration/raw
         raw_lidar_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/registration/raw", 10);
         // 发布状态，可能会给决策节点用，想法是reset状态急停，等待配准
-        status_pub_ = this->create_publisher<std_msgs::msg::String>("/registration_status", 10);
+        status_pub_ = this->create_publisher<std_msgs::msg::String>("/registration/status", 10);
+        relocation_ready_pub_ = this->create_publisher<std_msgs::msg::Bool>("/registration/relocation_ready", 10);
         timer_ = this->create_wall_timer(std::chrono::milliseconds(200), std::bind(&RelocationNode::timer_callback, this));
+        high_frequency_timer_ = this->create_wall_timer(std::chrono::milliseconds(100), std::bind(&RelocationNode::high_frequency_timer_callback, this));
 
         init_current_clouds_vector.reserve(init_accumulation_counter_ + 10); // 只预留空间，不分配内存，不创建对象
 
@@ -414,8 +421,11 @@ namespace hnurm
             break;
         }
         status_msg.data = state_str;
-        status_pub_->publish(status_msg);
+        status_pub_->publish(status_msg);     
+    }
 
+    void RelocationNode::high_frequency_timer_callback()
+    {
         Eigen::Isometry3d T_map_aft_registered = pre_result_;
 
         // publish transform
@@ -425,11 +435,53 @@ namespace hnurm
         transform.transform = tf2::eigenToTransform(T_map_aft_registered).transform;
         transform.header.stamp = this->now();
         tf_broadcaster_->sendTransform(transform);
+        // publish relocation ready
+        if(is_yaw_ready_)
+        {
+            std_msgs::msg::Bool relocation_ready_msg;
+            relocation_ready_msg.data = true;
+            relocation_ready_pub_->publish(relocation_ready_msg);
+        }
+    }
+        
+
+    void RelocationNode::yaw_ready_callback(const std_msgs::msg::Bool::SharedPtr msg)
+    {
+        if (!use_hero_individual_)
+        {
+            RCLCPP_ERROR(get_logger(), "Hero模式未启用(use_hero_individual_=false)，无法处理yaw ready消息");
+            return;
+        }
+
+        // 安全检查2：是否正在配准中
+        if (is_QUAandGICP_running_.load())
+        {
+            RCLCPP_ERROR(get_logger(), "正在执行其他配准任务，无法处理yaw ready消息");
+            return;
+        }
+
+        // 安全检查3：当前状态检查
+        State current_state = state_.load();
+        if (current_state == State::HERO)
+        {
+            RCLCPP_WARN(get_logger(), "当前已经是HERO状态，无需重复触发");
+            return;
+        }
+
+        reset();
+        // 切换到 HERO 状态
+        state_.store(State::HERO);
+
+        // 清理之前的初始化向量（避免残留数据影响）
+        init_current_clouds_vector.clear();
+
+        RCLCPP_BLUE(get_logger(), "状态已切换为HERO，准备执行高精度配准");
+
+        is_yaw_ready_ = msg->data;
+        RCLCPP_INFO(get_logger(), "Received yaw ready message: %s", is_yaw_ready_ ? "true" : "false");
     }
 
-    void RelocationNode::trigger_hero_callback(
-        const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
-        std::shared_ptr<std_srvs::srv::Trigger::Response> response)
+    void RelocationNode::trigger_hero_callback(const std::shared_ptr<std_srvs::srv::Trigger::Request> request, std::shared_ptr<std_srvs::srv::Trigger::Response> response)
     {
         (void)request; // 未使用请求参数
 
@@ -601,14 +653,7 @@ namespace hnurm
 
             /************************更新状态*****************************/
 
-            if (state_.load() == State::HERO)
-            {
-                hero_gicp_counter_++;
-                if(hero_gicp_counter_ >= hero_gicp_running_counter_threshold_)
-                    hero_gicp_counter_ = 0;
-                state_.store(State::NONE);
-            }
-            if (state_.load() == State::INIT || state_.load() == State::RESET)
+            if (state_.load() == State::INIT || state_.load() == State::RESET || state_.load() == State::HERO)
             {
                 state_.store(State::NONE);
             }
@@ -762,41 +807,6 @@ namespace hnurm
 
     void RelocationNode::GICP_tracking(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     {
-        /*
-        RCLCPP_INFO(this->get_logger(), "GICP_tracking 开始运行");
-        
-        if (!is_queue_full_)
-        {
-            track_slide_window_clouds_queue.push_back(current_cloud);
-            if (track_slide_window_clouds_queue.size() >= static_cast<size_t>(track_accumulation_counter_))
-            {
-                // 划定窗口大小
-                is_queue_full_ = true;
-            }
-            return;
-        }
-        else
-        {
-            // 滑动窗口核心：每接到新的一帧，剔除最开始的一帧，补充新的一帧，保持窗口大小不变后加和
-            track_slide_window_clouds_queue.pop_front();
-            track_slide_window_clouds_queue.push_back(current_cloud);
-            RCLCPP_INFO(this->get_logger(), "GICP_tracking 滑动窗口已更新，当前窗口大小：%ld", track_slide_window_clouds_queue.size());
-        }
-
-
-        gicp_run_counter_++;
-        if (gicp_run_counter_ % tracking_frequency_divisor_ != 0)
-        {
-            return; // 如果运行次数没有到阈值整数倍，直接结束这个函数，不进行gicp
-        }
-
-        pcl::PointCloud<pcl::PointXYZ>::Ptr current_sum_cloud_for_gicp(new pcl::PointCloud<pcl::PointXYZ>);
-
-        for (const auto &cloud : track_slide_window_clouds_queue)
-        {
-            *current_sum_cloud_for_gicp += *cloud;
-        }
-        small_gicp_registration(current_sum_cloud_for_gicp, "normal");*/
         auto current_cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
         pcl::fromROSMsg(*msg, *current_cloud);
     }

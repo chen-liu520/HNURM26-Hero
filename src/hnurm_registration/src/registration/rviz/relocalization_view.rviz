@@ -121,7 +121,7 @@ Visualization Manager:
       Class: rviz_default_plugins/PointCloud2
       Color: 0; 255; 255
       Color Transformer: FlatColor
-      Decay Time: 1.5 ## 维持1.5s
+      Decay Time: 7 ## 维持1.5s
       Durability Policy: Volatile
       Enabled: true
       Filter size: 10
@@ -159,7 +159,7 @@ Visualization Manager:
       Class: rviz_default_plugins/PointCloud2
       Color: 255; 85; 0
       Color Transformer: FlatColor
-      Decay Time: 1.5
+      Decay Time: 6
       Durability Policy: Volatile
       Enabled: true
       Filter size: 10

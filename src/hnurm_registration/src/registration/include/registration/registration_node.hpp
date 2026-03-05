@@ -1,6 +1,7 @@
 #pragma once
 #include <rclcpp/rclcpp.hpp>
 #include <std_srvs/srv/trigger.hpp>
+#include <std_msgs/msg/bool.hpp>
 #include <chrono>
 #include <iostream>
 #include <vector>
@@ -61,6 +62,8 @@ namespace hnurm
 
         RelocationNode &operator=(RelocationNode &&) = delete;
 
+        bool is_yaw_ready_ = false;
+
     private:
         /***********************回调和工具函数声明 start************************/
         void pointcloud_sub_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
@@ -70,10 +73,12 @@ namespace hnurm
         void set_gicp_handler();
         void update_deque_when_registration_thread_running(sensor_msgs::msg::PointCloud2::SharedPtr msg);
         void timer_callback();
+        void high_frequency_timer_callback();
 
         void trigger_hero_callback(
             const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
             std::shared_ptr<std_srvs::srv::Trigger::Response> response);
+        void yaw_ready_callback(const std_msgs::msg::Bool::SharedPtr msg);
 
         void small_gicp_registration(pcl::PointCloud<pcl::PointXYZ>::Ptr &current_sum_cloud_, std::string gicp_type);
         void reset();
@@ -93,6 +98,7 @@ namespace hnurm
         /***********************订阅者，发布者，定时器声明 start************************/
         rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_sub_;
         rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr init_pose_sub_; // 订阅rviz发布的初始位姿
+        rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr yaw_ready_sub_;                           // 订阅yaw准备好的信号
 
         // 服务端，接受请求，触发HERO模式
         rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr hero_trigger_service_;
@@ -100,9 +106,10 @@ namespace hnurm
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_registered_pub_; // 发布配准后的点云
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_pub_;            // 发布降采样的全局点云
         rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_pub_;                        // 发布状态
+        rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr relocation_ready_pub_;                // 发布重定位准备好信号，告诉TF可以计算向量
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr raw_lidar_pub_;             // 发布原始点云，来自/livox/lidar
-        rclcpp::TimerBase::SharedPtr timer_;
-
+        rclcpp::TimerBase::SharedPtr timer_;                                                    // 发布原始点云定时器
+        rclcpp::TimerBase::SharedPtr high_frequency_timer_;                                     // 高频定时器，用于发布tf和状态
         std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
         /***********************订阅者，发布者，定时器声明 end************************/
@@ -140,6 +147,7 @@ namespace hnurm
 
         // small_gicp参数
         std::string pointcloud_sub_topic_;
+        std::string yaw_ready_topic_;
         std::string trigger_hero_service_name_;
         std::string pcd_file_;
         std::string downsampled_pcd_file_;

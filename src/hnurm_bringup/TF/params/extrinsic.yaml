@@ -43,13 +43,13 @@
       roll: 0.0
       pitch: 0.0
       yaw: -1.5708 # mid360雷达的y轴在x左侧，x为枪管方向向前。需求是枪口方向是y，枪口右侧是x。因此绕y轴旋转-90度
-    downsampled_pcd_file: "/home/robot/hnurm_Hero/src/hnurm_bringup/TF/map/downtest.pcd"
     target_x: 0.0
     target_y: 0.0
     target_z: 0.0
 
     if_dynamic_pitch: true
     recv_topic: "vision_recv_data"
+    relocation_ready_topic: "/registration/relocation_ready"
     current_pointcloud_topic: "/livox/lidar" # "/livox/lidar"
 
     #joint_link 坐标系:           gunpoint_link 坐标系 (旋转后):

@@ -2,6 +2,7 @@
   ros__parameters:
     pointcloud_sub_topic: "/livox/lidar" 
     trigger_hero_service_name: "/trigger_hero_relocation" # 服务名
+    yaw_ready_topic: "/deploy/yaw_ready" # 视觉发过来yaw准备好的信号
     decision_reset_topic: "/change_registration_status" # 决策节点发布的状态，用于决策发过来过完起伏路段之后reset
     pcd_file: "/home/rm/hero_0/HNURM26-Hero2/src/hnurm_registration/src/registration/map/raw.pcd"
     downsampled_pcd_file: "/home/rm/hero_0/HNURM26-Hero2/src/hnurm_registration/src/registration/map/down.pcd"

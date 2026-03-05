@@ -14,7 +14,6 @@ namespace hnurm
 {
     TfTransformer::TfTransformer(const rclcpp::NodeOptions &options)
         : Node("TfTransformer", options),
-          global_map_downsampled_(new pcl::PointCloud<pcl::PointXYZ>), // 添加初始化
           pointcloud_registrated_(new pcl::PointCloud<pcl::PointXYZ>)  // 添加初始化
     {
         // Initialize the node
@@ -37,9 +36,6 @@ namespace hnurm
         joint_to_basefootprint_ = transforms["joint_to_base"];
         gunpoint_to_joint_ = transforms["gunpoint_to_joint"];
 
-        // 读取下采样后的点云文件路径
-        this->get_parameter("downsampled_pcd_file", downsampled_pcd_file_);
-
         // 目标点参数
         this->get_parameter("target_x", target_x_);
         this->get_parameter("target_y", target_y_);
@@ -49,17 +45,20 @@ namespace hnurm
 
         this->get_parameter("recv_topic", recv_topic_);
 
+        this->get_parameter("relocation_ready_topic", relocation_ready_topic_);
+
         this->get_parameter("current_pointcloud_topic", current_pointcloud_topic_);
 
-        RCLCPP_INFO(get_logger(), "Target point (map): %.2f, %.2f, %.2f", target_x_, target_y_, target_z_);
+        RCLCPP_INFO(get_logger(), "\033[35mTarget point (map): %.2f, %.2f, %.2f\033[0m", target_x_, target_y_, target_z_);
 
-        RCLCPP_ERROR(get_logger(), "joint_to_base: x=%.3f, y=%.3f, z=%.3f",
+        RCLCPP_INFO(get_logger(), "\033[35mjoint_to_base: x=%.3f, y=%.3f, z=%.3f\033[0m",
                     joint_to_basefootprint_.x, joint_to_basefootprint_.y, joint_to_basefootprint_.z);
-        RCLCPP_ERROR(get_logger(), "gunpoint_to_joint: x=%.3f, y=%.3f, z=%.3f, roll=%.3f, pitch=%.3f, yaw=%.3f",
+        RCLCPP_INFO(get_logger(), "\033[35mgunpoint_to_joint: x=%.3f, y=%.3f, z=%.3f, roll=%.3f, pitch=%.3f, yaw=%.3f\033[0m",
                     gunpoint_to_joint_.x, gunpoint_to_joint_.y, gunpoint_to_joint_.z,
                     gunpoint_to_joint_.roll, gunpoint_to_joint_.pitch, gunpoint_to_joint_.yaw);
-        RCLCPP_ERROR(get_logger(), "recv_topic: %s", recv_topic_.c_str());
-        RCLCPP_ERROR(get_logger(), "current_pointcloud_topic: %s", current_pointcloud_topic_.c_str());
+        RCLCPP_INFO(get_logger(), "\033[35mrecv_topic: %s\033[0m", recv_topic_.c_str());
+        RCLCPP_INFO(get_logger(), "\033[35mrelocation_ready_topic: %s\033[0m", relocation_ready_topic_.c_str());
+        RCLCPP_INFO(get_logger(), "\033[35mcurrent_pointcloud_topic: %s\033[0m", current_pointcloud_topic_.c_str());
 
         /***************参数读取 end******************/
 
@@ -74,12 +73,10 @@ namespace hnurm
             rclcpp::SensorDataQoS(), std::bind(&TfTransformer::recv_data_callback, 
             this, std::placeholders::_1));
 
-        /*
-        odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-            "/aft_mapped_to_init",
-            rclcpp::SensorDataQoS(),
-            std::bind(&TfTransformer::odom_callback, 
-            this, std::placeholders::_1));*/
+        relocation_ready_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+            relocation_ready_topic_,
+            rclcpp::SensorDataQoS(), std::bind(&TfTransformer::relocation_ready_callback, 
+            this, std::placeholders::_1));
 
         // 订阅实时点云
         pointcloud_registrated_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -95,43 +92,13 @@ namespace hnurm
 
     void TfTransformer::init_and_static_transform()
     {
-        // 1. 加载下采样后的点云文件,读取坐标系
-        if (pcl::io::loadPCDFile<pcl::PointXYZ>(downsampled_pcd_file_, *global_map_downsampled_) == -1)
-        {
-            RCLCPP_ERROR(get_logger(), "Failed to load downsampled PCD file: %s", downsampled_pcd_file_.c_str());
-            return;
-        }
-        else
-        {
-            RCLCPP_INFO(get_logger(), "Successfully loaded downsampled PCD file: %s", downsampled_pcd_file_.c_str());
-        }
-
         // 创建一个静态变换通用数据结构，用于存储所有变换信息
         geometry_msgs::msg::TransformStamped static_transform;
 
         // 定义一个四元数对象，用于存储旋转信息
         tf2::Quaternion q;
 
-        // 2. 静态变换 全局点云地图frame_id -> map：完全重合
-        std::string map_parent = global_map_downsampled_->header.frame_id;
-        if (map_parent.empty())
-        {
-            map_parent = "global_map"; // 使用默认值
-            RCLCPP_WARN(get_logger(), "PCD file has no frame_id, using default: %s", map_parent.c_str());
-        }
-        static_transform.header.frame_id = map_parent; // 父坐标系
-        static_transform.child_frame_id = "map";                                     // 子坐标系
-        static_transform.transform.translation.x = 0.0;
-        static_transform.transform.translation.y = 0.0;
-        static_transform.transform.translation.z = 0.0;
-        static_transform.transform.rotation.x = 0.0;
-        static_transform.transform.rotation.y = 0.0;
-        static_transform.transform.rotation.z = 0.0;
-        static_transform.transform.rotation.w = 1.0;
-        static_broadcaster_->sendTransform(static_transform);
-
-
-        // 3. 静态变换  base_link -> basefootprint：外参传入
+        // 1. 静态变换  base_link -> basefootprint：外参传入
         static_transform.header.frame_id = "base_link";     // 父坐标系
         static_transform.child_frame_id = "base_footprint"; // 子坐标系
         static_transform.transform.translation.x = -lidar_to_basefootprint_.x;
@@ -144,7 +111,7 @@ namespace hnurm
         static_transform.transform.rotation.w = q.w();
         static_broadcaster_->sendTransform(static_transform);
 
-        // 4. 静态变换  joint_link -> gunpoint：外参传入
+        // 2. 静态变换  joint_link -> gunpoint：外参传入
         static_transform.header.frame_id = "joint_link";   // 父坐标系
         static_transform.child_frame_id = "gunpoint_link"; // 子坐标系
         static_transform.transform.translation.x = gunpoint_to_joint_.x;
@@ -157,7 +124,7 @@ namespace hnurm
         static_transform.transform.rotation.w = q.w();
         static_broadcaster_->sendTransform(static_transform);
 
-        // 5. pointcloud_registrated_ -> base_link，静态重合
+        // 3. pointcloud_registrated_ -> base_link，静态重合
         static_transform.header.frame_id = "aft_registered";       // 父坐标系
         static_transform.child_frame_id = "base_link";       // 子坐标系
         static_transform.transform.translation.x = 0.0;
@@ -223,21 +190,6 @@ namespace hnurm
         pcl::fromROSMsg(*msg, *pointcloud_registrated_);
         is_regis_cloud_ready_ = true;
     }
-    /*
-    TfTransformer::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
-    {
-        
-        geometry_msgs::msg::TransformStamped transform;
-        transform.header.stamp = msg->header.stamp;
-        transform.header.frame_id = "map";     // 父坐标系（原来是 map）
-        transform.child_frame_id = "base_link"; // 子坐标系（原来是 aft_registered）
-        transform.transform.translation.x = msg->pose.pose.position.x;
-        transform.transform.translation.y = msg->pose.pose.position.y;
-        transform.transform.translation.z = msg->pose.pose.position.z;
-        transform.transform.rotation = msg->pose.pose.orientation;
-        tf_broadcaster_->sendTransform(transform);
-        is_odom_ready_ = true;
-    }*/
 
     void TfTransformer::recv_data_callback(const hnurm_interfaces::msg::VisionRecvData::SharedPtr msg)
     {
@@ -310,7 +262,7 @@ namespace hnurm
     
     void TfTransformer::calculate_vector()
     {
-        if (!is_static_finished_ || !is_odom_ready_ || !is_relocation_ready_)
+        if (!is_static_finished_ || !is_relocation_ready_ || !can_publish_)
         {
             return;
         }
@@ -375,12 +327,14 @@ namespace hnurm
                 RCLCPP_WARN(this->get_logger(),
                             "Could not get transform from 【map to base_link】: %s", ex.what());
             }
-        }
-        
-        is_odom_ready_ = true;
-         
+        }   
     }
 
+    void TfTransformer::relocation_ready_callback(const std_msgs::msg::Bool::SharedPtr msg)
+    {
+        can_publish_ = msg->data;
+        RCLCPP_INFO(get_logger(), "Can publish: %s", can_publish_ ? "true" : "false");
+    }
 } // namespace hnurm
 
 int main(int argc, char *argv[])

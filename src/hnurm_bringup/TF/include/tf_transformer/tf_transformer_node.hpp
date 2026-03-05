@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nav_msgs/msg/odometry.hpp"
+#include "std_msgs/msg/bool.hpp"
 #include "hnurm_interfaces/msg/vision_recv_data.hpp"
 #include "std_msgs/msg/float32.hpp"
 
@@ -62,16 +63,18 @@ public:
 
     bool is_static_finished_ = false; // 静态变换是否完成
 
-    bool is_odom_ready_ = false; // 里程计是否完成变换
-
     bool is_relocation_ready_ = false; // 重定位是否完成变换
+
+    bool can_publish_ = false; // 是否可以发布枪口到目标点的向量
     // 目标点三维坐标，相对map系
     double target_x_, target_y_, target_z_;
 
     // 是否实时补偿pitch角度
     bool if_dynamic_pitch_ = true;
 
-    std::string recv_topic_ = "recv"; // 接收视觉识别数据的话题名称
+    std::string recv_topic_ = "vision_recv_data"; // 接收视觉识别数据的话题名称
+
+    std::string relocation_ready_topic_ = "/registration/relocation_ready"; // 重定位准备好话题名称
 
     std::string current_pointcloud_topic_ = "current_pointcloud"; // 当前点云话题名称
 
@@ -88,6 +91,8 @@ private:
 
     rclcpp::Subscription<hnurm_interfaces::msg::VisionRecvData>::SharedPtr recv_data_sub_; // 订阅视觉识别数据，用于获取云台pitch转角
 
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr relocation_ready_sub_; // 订阅当前云台pitch转角
+
     /*******************发布者 ***********************/
     std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::PointStamped>> gun2target_vector_pub_; // 发布枪到目标点的向量
 
@@ -99,10 +104,6 @@ private:
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_; // 监听ROS话题上发布的变换消息并将其存储到tf_buffer_中
     std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_; // 广播动态变化的坐标变换到/tf话题，发布随时间变化的变换关系（如机器人运动时的位姿）
     std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_broadcaster_; // 广播静态（不随时间变化）的坐标变换到/tf_static话题，发布固定的变换关系（如传感器安装位置，优化带宽使用，因为静态变换只需发布一次
-
-    std::string downsampled_pcd_file_; // 存储下采样后的点云文件路径，作为map系的初始
-    
-    pcl::PointCloud<pcl::PointXYZ>::Ptr global_map_downsampled_;// 存储下采样后的点云，作为map系的初始pose
     pcl::PointCloud<pcl::PointXYZ>::Ptr pointcloud_registrated_;
 
     // 初始位姿猜测
@@ -118,6 +119,9 @@ private:
  
     // 三个静态
     void timer_callback();
+
+    // 重定位准备好回调
+    void relocation_ready_callback(const std_msgs::msg::Bool::SharedPtr msg);
 
     // 串口订阅回调
     void recv_data_callback(const hnurm_interfaces::msg::VisionRecvData::SharedPtr msg);
