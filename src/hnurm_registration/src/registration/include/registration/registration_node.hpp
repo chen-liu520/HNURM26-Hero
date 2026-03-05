@@ -64,6 +64,8 @@ namespace hnurm
 
         bool is_yaw_ready_ = false;
 
+        bool is_relocation_finished_ = false;
+
     private:
         /***********************回调和工具函数声明 start************************/
         void pointcloud_sub_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);

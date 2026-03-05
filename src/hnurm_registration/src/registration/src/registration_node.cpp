@@ -435,11 +435,16 @@ namespace hnurm
         transform.transform = tf2::eigenToTransform(T_map_aft_registered).transform;
         transform.header.stamp = this->now();
         tf_broadcaster_->sendTransform(transform);
-        // publish relocation ready
-        if(is_yaw_ready_)
+
+        // 必须等待发布变换完成后再发布 relocation_ready，确保TF计算向量正确
+        if(is_yaw_ready_ && is_relocation_finished_)
         {
             std_msgs::msg::Bool relocation_ready_msg;
             relocation_ready_msg.data = true;
+            relocation_ready_pub_->publish(relocation_ready_msg);
+        }else{
+            std_msgs::msg::Bool relocation_ready_msg;
+            relocation_ready_msg.data = false;
             relocation_ready_pub_->publish(relocation_ready_msg);
         }
     }
@@ -478,6 +483,8 @@ namespace hnurm
         RCLCPP_BLUE(get_logger(), "状态已切换为HERO，准备执行高精度配准");
 
         is_yaw_ready_ = msg->data;
+        if(!is_yaw_ready_) // false
+            is_relocation_finished_ = false; // 如果yaw不ready了，说明是非部署模式，等待下一次触发进入部署模式
         RCLCPP_INFO(get_logger(), "Received yaw ready message: %s", is_yaw_ready_ ? "true" : "false");
     }
 
@@ -614,6 +621,8 @@ namespace hnurm
             transform.transform = tf2::eigenToTransform(T_map_aft_registered).transform;
             transform.header.stamp = this->now();
             tf_broadcaster_->sendTransform(transform);
+
+            is_relocation_finished_ = true;
 
             // 计算平均误差，更直观的配准质量指标
             double avg_error = result.num_inliers > 0 ? result.error / result.num_inliers : 0.0;
