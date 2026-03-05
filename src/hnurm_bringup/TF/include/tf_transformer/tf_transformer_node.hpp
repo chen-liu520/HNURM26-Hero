@@ -3,9 +3,11 @@
 #include "nav_msgs/msg/odometry.hpp"
 #include "hnurm_interfaces/msg/vision_recv_data.hpp"
 #include "std_msgs/msg/float32.hpp"
+#include <std_msgs/msg/bool.hpp>
 
 #include <vector>
 #include <tf2/LinearMath/Quaternion.h> 
+#include <tf2/utils.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include "geometry_msgs/msg/vector3.hpp"
 #include "tf2_ros/buffer.h"
@@ -65,11 +67,14 @@ public:
     bool is_odom_ready_ = false; // 里程计是否完成变换
 
     bool is_relocation_ready_ = false; // 重定位是否完成变换
+
+    bool is_dynamic_yaw = false;
     // 目标点三维坐标，相对map系
     double target_x_, target_y_, target_z_;
 
     // 是否实时补偿pitch角度
     bool if_dynamic_pitch_ = true;
+    double base_yaw = 0.0;
 
     std::string recv_topic_ = "recv"; // 接收视觉识别数据的话题名称
 
@@ -87,8 +92,10 @@ private:
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_registrated_sub_; // 订阅重定位待配准点云，用于获取odom坐标系
 
     rclcpp::Subscription<hnurm_interfaces::msg::VisionRecvData>::SharedPtr recv_data_sub_; // 订阅视觉识别数据，用于获取云台pitch转角
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr dynamic_yaw_sub_;          // 订阅是否动态调整yaw的bool值，给tf模块用
 
     /*******************发布者 ***********************/
+    std::shared_ptr<rclcpp::Publisher<std_msgs::msg::Bool>> dynamic_yaw_pub_; // 发布是否动态调整yaw的bool值，给tf模块用
     std::shared_ptr<rclcpp::Publisher<geometry_msgs::msg::PointStamped>> gun2target_vector_pub_; // 发布枪到目标点的向量
 
     rclcpp::TimerBase::SharedPtr timer_;
@@ -124,6 +131,8 @@ private:
 
     // 给出变换/cloud_registrated -> odom，的cloud_registrated原来的frame_id
     void pointcloud_sub_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+
+    void dynamic_yaw_callback(const std_msgs::msg::Bool::SharedPtr msg);
 
     extrinsic getTransformParams(const std::string & ns);
 

@@ -16,6 +16,7 @@
 #include <sensor_msgs/msg/point_field.hpp>
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <std_msgs/msg/string.hpp>
+#include <std_msgs/msg/bool.hpp>
 
 // eigen libs
 #include <Eigen/Geometry>
@@ -70,6 +71,7 @@ namespace hnurm
         void set_gicp_handler();
         void update_deque_when_registration_thread_running(sensor_msgs::msg::PointCloud2::SharedPtr msg);
         void timer_callback();
+        void relocation_pub_timer_callback();
 
         void trigger_hero_callback(
             const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
@@ -101,7 +103,9 @@ namespace hnurm
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_pub_;            // 发布降采样的全局点云
         rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_pub_;                        // 发布状态
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr raw_lidar_pub_;             // 发布原始点云，来自/livox/lidar
+        rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr dynamic_yaw;                          // 发布是否动态调整yaw的bool值，给tf模块用
         rclcpp::TimerBase::SharedPtr timer_;
+        rclcpp::TimerBase::SharedPtr relocation_pub_timer_; // 定时器，定时检查是否需要进行gicp配准
 
         std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 

@@ -68,12 +68,17 @@ namespace hnurm
         tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
         tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(*this);
         static_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
+        
 
         recv_data_sub_ = this->create_subscription<hnurm_interfaces::msg::VisionRecvData>(
             recv_topic_, 
             rclcpp::SensorDataQoS(), std::bind(&TfTransformer::recv_data_callback, 
             this, std::placeholders::_1));
 
+        dynamic_yaw_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+            "/is_dynamic_yaw", 
+            rclcpp::SensorDataQoS(), std::bind(&TfTransformer::dynamic_yaw_callback, 
+            this, std::placeholders::_1));
         /*
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
             "/aft_mapped_to_init",
@@ -90,45 +95,18 @@ namespace hnurm
 
         gun2target_vector_pub_ = this->create_publisher<geometry_msgs::msg::PointStamped>("/gun2target_vector", 10);
 
+        dynamic_yaw_pub_ = this->create_publisher<std_msgs::msg::Bool>("/is_dynamic_yaw", 10);
+
         timer_tf_ = this->create_wall_timer(110ms, std::bind(&TfTransformer::timer_callback, this));
     }
 
     void TfTransformer::init_and_static_transform()
     {
-        // 1. 加载下采样后的点云文件,读取坐标系
-        if (pcl::io::loadPCDFile<pcl::PointXYZ>(downsampled_pcd_file_, *global_map_downsampled_) == -1)
-        {
-            RCLCPP_ERROR(get_logger(), "Failed to load downsampled PCD file: %s", downsampled_pcd_file_.c_str());
-            return;
-        }
-        else
-        {
-            RCLCPP_INFO(get_logger(), "Successfully loaded downsampled PCD file: %s", downsampled_pcd_file_.c_str());
-        }
-
         // 创建一个静态变换通用数据结构，用于存储所有变换信息
         geometry_msgs::msg::TransformStamped static_transform;
 
         // 定义一个四元数对象，用于存储旋转信息
         tf2::Quaternion q;
-
-        // 2. 静态变换 全局点云地图frame_id -> map：完全重合
-        std::string map_parent = global_map_downsampled_->header.frame_id;
-        if (map_parent.empty())
-        {
-            map_parent = "global_map"; // 使用默认值
-            RCLCPP_WARN(get_logger(), "PCD file has no frame_id, using default: %s", map_parent.c_str());
-        }
-        static_transform.header.frame_id = map_parent; // 父坐标系
-        static_transform.child_frame_id = "map";                                     // 子坐标系
-        static_transform.transform.translation.x = 0.0;
-        static_transform.transform.translation.y = 0.0;
-        static_transform.transform.translation.z = 0.0;
-        static_transform.transform.rotation.x = 0.0;
-        static_transform.transform.rotation.y = 0.0;
-        static_transform.transform.rotation.z = 0.0;
-        static_transform.transform.rotation.w = 1.0;
-        static_broadcaster_->sendTransform(static_transform);
 
 
         // 3. 静态变换  base_link -> basefootprint：外参传入
@@ -239,6 +217,13 @@ namespace hnurm
         is_odom_ready_ = true;
     }*/
 
+    void TfTransformer::dynamic_yaw_callback(const std_msgs::msg::Bool::SharedPtr msg){
+        if(msg->data == true){
+            is_dynamic_yaw = true;
+        }else if(msg->data == false){
+            is_dynamic_yaw = false;
+        }
+    }
     void TfTransformer::recv_data_callback(const hnurm_interfaces::msg::VisionRecvData::SharedPtr msg)
     {
 
@@ -257,6 +242,18 @@ namespace hnurm
         transformStamped.header.frame_id = "base_footprint"; // 父坐标系（原来是 camera_init）
         transformStamped.child_frame_id = "joint_link";      // 子坐标系（原来是 aft_mapped）
 
+        if(is_dynamic_yaw){
+            geometry_msgs::msg::TransformStamped tf_base = tf_buffer_->lookupTransform(
+                "map",           // target_frame
+                "base_footprint",            // source_frame
+                tf2::TimePointZero,         // 最新时间
+                tf2::durationFromSec(0.1)); // 100ms超时
+            tf2::Quaternion q_base;
+            tf2::fromMsg(tf_base.transform.rotation, q_base);
+            base_yaw = tf2::getYaw(q_base);
+            dynamic_yaw_pub_->publish(std_msgs::msg::Bool().set__data(false));
+        }
+
         // 5. 复制位置
         transformStamped.transform.translation.x = joint_to_basefootprint_.x;
         transformStamped.transform.translation.y = joint_to_basefootprint_.y;
@@ -264,7 +261,7 @@ namespace hnurm
 
         // 6. 复制姿态（四元数）
         if (if_dynamic_pitch_)
-            q.setRPY(0, -rpy.pitch * M_PI / 180.0, 0);
+            q.setRPY(0, -rpy.pitch * M_PI / 180.0, rpy.yaw* M_PI / 180.0 - base_yaw); // 注意：这里的顺序是 roll, pitch, yaw，单位是弧度
         else
             q.setRPY(0, 0, 0);
         transformStamped.transform.rotation.x = q.x();

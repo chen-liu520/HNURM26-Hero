@@ -26,13 +26,13 @@
     gicp_convergence_translation_tolerance: 1e-3    # 平移收敛阈值（单位：m）
     gicp_convergence_rotation_tolerance: 1e-2       # 旋转收敛阈值（单位：rad
     
-    tracking_frequency_divisor: 5       # 跟踪阶段每收到几帧进行一次gicp，用于控制gicp频率，控制资源消耗，注意要大于等于1
+    tracking_frequency_divisor: 10       # 跟踪阶段每收到几帧进行一次gicp，用于控制gicp频率，控制资源消耗，注意要大于等于1
 
     gicp_voxel_size: 0.2               # gicp配准下采样
     quatro_voxel_size: 0.2             # quatro配准下采样
 
     # 英雄部署模式定位 配准参数#################################################################
-    gicp2_num_threads: 3                             # 线程数
+    gicp2_num_threads: 5                             # 线程数
     gicp2_num_neighbors: 20                   
     gicp2_max_dist_sq: 0.16                          # 距离阈值平方
     gicp2_max_iterations: 30                         # 最大迭代次数（默认通常是30-50）

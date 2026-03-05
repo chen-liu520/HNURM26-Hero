@@ -147,7 +147,10 @@ namespace hnurm
         raw_lidar_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/registration/raw", 10);
         // 发布状态，可能会给决策节点用，想法是reset状态急停，等待配准
         status_pub_ = this->create_publisher<std_msgs::msg::String>("/registration_status", 10);
-        timer_ = this->create_wall_timer(std::chrono::milliseconds(200), std::bind(&RelocationNode::timer_callback, this));
+
+        dynamic_yaw = this->create_publisher<std_msgs::msg::Bool>("/is_dynamic_yaw", 10);
+        timer_ = this->create_wall_timer(std::chrono::milliseconds(2000), std::bind(&RelocationNode::timer_callback, this));
+        relocation_pub_timer_ = this->create_wall_timer(std::chrono::milliseconds(100), std::bind(&RelocationNode::relocation_pub_timer_callback, this));
 
         init_current_clouds_vector.reserve(init_accumulation_counter_ + 10); // 只预留空间，不分配内存，不创建对象
 
@@ -346,7 +349,7 @@ namespace hnurm
             else if (state_.load() == State::TRACKING)
             {
                 // small_gicp 连续配准,滑动窗口
-                // GICP_tracking(msg);
+                GICP_tracking(msg);
             }
             else if (state_.load() == State::RESET)
             {
@@ -415,9 +418,11 @@ namespace hnurm
         }
         status_msg.data = state_str;
         status_pub_->publish(status_msg);
+    }
 
+    void RelocationNode::relocation_pub_timer_callback()
+    {
         Eigen::Isometry3d T_map_aft_registered = pre_result_;
-
         // publish transform
         transform.header.stamp = this->now();
         transform.header.frame_id = "map";
@@ -601,16 +606,9 @@ namespace hnurm
 
             /************************更新状态*****************************/
 
-            if (state_.load() == State::HERO)
+            if (state_.load() == State::INIT || state_.load() == State::RESET || state_.load() == State::HERO)
             {
-                hero_gicp_counter_++;
-                if(hero_gicp_counter_ >= hero_gicp_running_counter_threshold_)
-                    hero_gicp_counter_ = 0;
-                state_.store(State::NONE);
-            }
-            if (state_.load() == State::INIT || state_.load() == State::RESET)
-            {
-                state_.store(State::NONE);
+                state_.store(State::TRACKING);
             }
         }
         else
@@ -659,6 +657,7 @@ namespace hnurm
                 RCLCPP_ERROR(get_logger(), "配准质量: 较差 (avg_error >= 0.3)");
             }
         }
+        dynamic_yaw->publish(std_msgs::msg::Bool().set__data(false));
     }
 
     void RelocationNode::reset()
@@ -762,8 +761,9 @@ namespace hnurm
 
     void RelocationNode::GICP_tracking(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     {
-        /*
-        RCLCPP_INFO(this->get_logger(), "GICP_tracking 开始运行");
+        auto current_cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
+        pcl::fromROSMsg(*msg, *current_cloud);
+        //RCLCPP_INFO(this->get_logger(), "GICP_tracking 开始运行");
         
         if (!is_queue_full_)
         {
@@ -780,13 +780,14 @@ namespace hnurm
             // 滑动窗口核心：每接到新的一帧，剔除最开始的一帧，补充新的一帧，保持窗口大小不变后加和
             track_slide_window_clouds_queue.pop_front();
             track_slide_window_clouds_queue.push_back(current_cloud);
-            RCLCPP_INFO(this->get_logger(), "GICP_tracking 滑动窗口已更新，当前窗口大小：%ld", track_slide_window_clouds_queue.size());
+            //RCLCPP_INFO(this->get_logger(), "GICP_tracking 滑动窗口已更新，当前窗口大小：%ld", track_slide_window_clouds_queue.size());
         }
 
 
         gicp_run_counter_++;
         if (gicp_run_counter_ % tracking_frequency_divisor_ != 0)
         {
+            RCLCPP_INFO(this->get_logger(), "\033[35mGICP_tracking：当前运行次数 %d，未到达阈值整数倍 %d，跳过本次配准/033[0m", gicp_run_counter_, tracking_frequency_divisor_);
             return; // 如果运行次数没有到阈值整数倍，直接结束这个函数，不进行gicp
         }
 
@@ -796,9 +797,8 @@ namespace hnurm
         {
             *current_sum_cloud_for_gicp += *cloud;
         }
-        small_gicp_registration(current_sum_cloud_for_gicp, "normal");*/
-        auto current_cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
-        pcl::fromROSMsg(*msg, *current_cloud);
+        small_gicp_registration(current_sum_cloud_for_gicp, "normal");
+        
     }
 
     void RelocationNode::accumulate_cloud_then_QUAandGICP(const sensor_msgs::msg::PointCloud2::SharedPtr msg, int quatro_num)
