@@ -38,6 +38,7 @@ public:
         RCLCPP_INFO(this->get_logger(), "  Hero 重定位触发器已启动");
         RCLCPP_INFO(this->get_logger(), "========================================");
         
+        /*
         // 等待服务可用
         while (!client_->wait_for_service(1s)) {
             if (!rclcpp::ok()) {
@@ -45,7 +46,7 @@ public:
                 return;
             }
             RCLCPP_INFO(this->get_logger(), "服务不可用，等待中...");
-        }
+        }*/
         /*
         RCLCPP_INFO(this->get_logger(), "服务已连接！");
         RCLCPP_INFO(this->get_logger(), "使用说明：");
