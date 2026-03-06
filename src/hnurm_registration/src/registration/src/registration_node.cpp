@@ -135,7 +135,7 @@ namespace hnurm
 
         yaw_ready_sub_ = this->create_subscription<std_msgs::msg::Bool>(
             yaw_ready_topic_,
-            rclcpp::QoS(10).reliable(),
+            rclcpp::QoS(1).reliable().transient_local(),
             std::bind(&RelocationNode::yaw_ready_callback, this, std::placeholders::_1));
 
         // 服务端
@@ -452,7 +452,14 @@ namespace hnurm
 
     void RelocationNode::yaw_ready_callback(const std_msgs::msg::Bool::SharedPtr msg)
     {
+        pre_yaw_ready_ = is_yaw_ready_;
         is_yaw_ready_ = msg->data;
+        RCLCPP_INFO(get_logger(), "收到yaw ready消息，但状态未发生变化，当前状态：%s，前一个状态：%s", is_yaw_ready_ ? "true" : "false", pre_yaw_ready_ ? "true" : "false");
+        /* !!! 这一部分是一个信号变换检查：只要false->true这个变化，才改为HERO状态，true->false则不改变状态 !!!*/
+        if(pre_yaw_ready_ == is_yaw_ready_){
+            RCLCPP_WARN(get_logger(), "收到yaw ready消息，但状态未发生变化，当前状态：%s，前一个状态：%s", is_yaw_ready_ ? "true" : "false", pre_yaw_ready_ ? "true" : "false");
+            return;
+        }
         if(!is_yaw_ready_){
             is_relocation_finished_ = false;// 如果yaw不ready了，说明是非部署模式，等待下一次触发进入部署模式
             return;
@@ -732,6 +739,7 @@ namespace hnurm
         // 状态重置
         track_slide_window_clouds_queue.clear();
         is_queue_full_ = false;
+        is_relocation_finished_ = false;
         gicp_run_counter_ = 0;
     }
 

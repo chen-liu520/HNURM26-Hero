@@ -62,9 +62,11 @@ namespace hnurm
 
         RelocationNode &operator=(RelocationNode &&) = delete;
 
-        bool is_yaw_ready_ = false;
+        std::atomic<bool> is_yaw_ready_{false};
 
-        bool is_relocation_finished_ = false;
+        std::atomic<bool> pre_yaw_ready_{false};
+
+        std::atomic<bool> is_relocation_finished_{false};
 
     private:
         /***********************回调和工具函数声明 start************************/

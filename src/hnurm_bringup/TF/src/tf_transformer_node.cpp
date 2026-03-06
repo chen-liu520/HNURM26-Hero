@@ -85,7 +85,7 @@ namespace hnurm
             std::bind(&TfTransformer::pointcloud_sub_callback, 
             this, std::placeholders::_1));
 
-        gun2target_vector_pub_ = this->create_publisher<geometry_msgs::msg::PointStamped>("/gun2target_vector", 10);
+        gun2target_vector_pub_ = this->create_publisher<geometry_msgs::msg::PointStamped>("/gun2target_vector", rclcpp::SensorDataQoS());
 
         timer_tf_ = this->create_wall_timer(110ms, std::bind(&TfTransformer::timer_callback, this));
     }
