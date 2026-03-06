@@ -452,6 +452,12 @@ namespace hnurm
 
     void RelocationNode::yaw_ready_callback(const std_msgs::msg::Bool::SharedPtr msg)
     {
+        is_yaw_ready_ = msg->data;
+        if(!is_yaw_ready_){
+            is_relocation_finished_ = false;// 如果yaw不ready了，说明是非部署模式，等待下一次触发进入部署模式
+            return;
+        }
+            
         if (!use_hero_individual_)
         {
             RCLCPP_ERROR(get_logger(), "Hero模式未启用(use_hero_individual_=false)，无法处理yaw ready消息");
@@ -482,9 +488,7 @@ namespace hnurm
 
         RCLCPP_BLUE(get_logger(), "状态已切换为HERO，准备执行高精度配准");
 
-        is_yaw_ready_ = msg->data;
-        if(!is_yaw_ready_) // false
-            is_relocation_finished_ = false; // 如果yaw不ready了，说明是非部署模式，等待下一次触发进入部署模式
+        
         RCLCPP_INFO(get_logger(), "Received yaw ready message: %s", is_yaw_ready_ ? "true" : "false");
     }
 
@@ -624,6 +628,7 @@ namespace hnurm
 
             is_relocation_finished_ = true;
 
+            /***********************************************质量评估 start**************************************************** */
             // 计算平均误差，更直观的配准质量指标
             double avg_error = result.num_inliers > 0 ? result.error / result.num_inliers : 0.0;
             // 计算内点率 (inlier ratio)
@@ -652,6 +657,7 @@ namespace hnurm
             {
                 RCLCPP_ERROR(get_logger(), "配准质量: 较差 (avg_error >= 0.3)");
             }
+            /***********************************************质量评估 end**************************************************** */
 
             /***********************发布配准后的点云 start************************/
             sensor_msgs::msg::PointCloud2 current_cloud_pub_msg;

@@ -9,6 +9,8 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_srvs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 
 add_executable(trigger_hero_node src/trigger_hero_node.cpp)
 target_include_directories(trigger_hero_node PUBLIC
@@ -19,6 +21,7 @@ ament_target_dependencies(
   trigger_hero_node
   "rclcpp"
   "std_srvs"
+  "std_msgs"
 )
 
 install(TARGETS trigger_hero_node

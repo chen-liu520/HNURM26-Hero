@@ -21,6 +21,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "std_srvs/srv/trigger.hpp"
+#include <std_msgs/msg/bool.hpp>
 
 using namespace std::chrono_literals;
 
@@ -31,11 +32,11 @@ public:
     {
         // 创建服务客户端
         client_ = this->create_client<std_srvs::srv::Trigger>("trigger_hero_relocation");
+        status_pub_ = this->create_publisher<std_msgs::msg::Bool>("/deploy/yaw_ready", 10);
         
         RCLCPP_INFO(this->get_logger(), "========================================");
         RCLCPP_INFO(this->get_logger(), "  Hero 重定位触发器已启动");
         RCLCPP_INFO(this->get_logger(), "========================================");
-        RCLCPP_INFO(this->get_logger(), "等待服务 /trigger_hero_relocation ...");
         
         // 等待服务可用
         while (!client_->wait_for_service(1s)) {
@@ -45,13 +46,14 @@ public:
             }
             RCLCPP_INFO(this->get_logger(), "服务不可用，等待中...");
         }
-        
+        /*
         RCLCPP_INFO(this->get_logger(), "服务已连接！");
         RCLCPP_INFO(this->get_logger(), "使用说明：");
         RCLCPP_INFO(this->get_logger(), "  [回车键] - 触发 Hero 高精度重定位");
         RCLCPP_INFO(this->get_logger(), "  [Ctrl+C] - 退出程序");
-        RCLCPP_INFO(this->get_logger(), "等待输入...");
-        
+        RCLCPP_INFO(this->get_logger(), "等待输入...");*/
+        RCLCPP_INFO(this->get_logger(), "\033[1;32m使用说明：\n  [回车键] - 【触发部署模式，再按一次关闭部署\033[0m");
+
         // 启动键盘监听线程
         keyboard_thread_ = std::thread(&TriggerHeroNode::keyboardLoop, this);
     }
@@ -86,7 +88,7 @@ private:
     void triggerHero()
     {
         RCLCPP_INFO(this->get_logger(), "[触发] 发送 Hero 模式请求...");
-        
+        /*
         auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
         
         // 异步发送请求
@@ -108,9 +110,25 @@ private:
             }
         } else if (status == std::future_status::timeout) {
             RCLCPP_ERROR(this->get_logger(), "[超时] 服务响应超时（5秒）");
+        }*/
+        if(!is_hero_mode_){
+            std_msgs::msg::Bool yaw_ready_msg;
+            yaw_ready_msg.data = true;
+            status_pub_->publish(yaw_ready_msg);
+            RCLCPP_INFO(this->get_logger(), "\033[1;35m已进入 Hero 模式，发布 yaw_ready=true\033[0m");
+            is_hero_mode_ = true;
+        }else{
+            std_msgs::msg::Bool yaw_ready_msg;
+            yaw_ready_msg.data = false;
+            status_pub_->publish(yaw_ready_msg);
+            RCLCPP_INFO(this->get_logger(), "\033[1;35m已退出 Hero 模式，发布 yaw_ready=false\033[0m");
+            is_hero_mode_ = false;
         }
+       
     }
 
+    bool is_hero_mode_ = false;
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr status_pub_;
     rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr client_;
     std::thread keyboard_thread_;
 };
