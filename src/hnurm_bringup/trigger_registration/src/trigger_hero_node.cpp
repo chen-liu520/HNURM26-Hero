@@ -32,8 +32,8 @@ public:
     {
         // 创建服务客户端
         client_ = this->create_client<std_srvs::srv::Trigger>("trigger_hero_relocation");
-        status_pub_ = this->create_publisher<std_msgs::msg::Bool>("/deploy/yaw_ready", 10);
-        
+        status_pub_ = this->create_publisher<std_msgs::msg::Bool>("/deploy/yaw_ready", rclcpp::QoS(1).reliable().transient_local());
+
         RCLCPP_INFO(this->get_logger(), "========================================");
         RCLCPP_INFO(this->get_logger(), "  Hero 重定位触发器已启动");
         RCLCPP_INFO(this->get_logger(), "========================================");
