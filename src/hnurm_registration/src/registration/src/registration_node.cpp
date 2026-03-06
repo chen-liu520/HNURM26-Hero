@@ -454,7 +454,7 @@ namespace hnurm
     {
         pre_yaw_ready_.store(is_yaw_ready_.load());
         is_yaw_ready_.store(msg->data);
-        RCLCPP_INFO(get_logger(), "收到yaw ready消息，但状态未发生变化，当前状态：%s，前一个状态：%s", is_yaw_ready_.load() ? "true" : "false", pre_yaw_ready_.load() ? "true" : "false");
+        RCLCPP_INFO(get_logger(), "收到yaw ready消息，当前状态：%s，前一个状态：%s", is_yaw_ready_.load() ? "true" : "false", pre_yaw_ready_.load() ? "true" : "false");
         /* !!! 这一部分是一个信号变换检查：只要false->true这个变化，才改为HERO状态，true->false则不改变状态 !!!*/
         if(pre_yaw_ready_.load() == is_yaw_ready_.load()){
             RCLCPP_WARN(get_logger(), "收到yaw ready消息，但状态未发生变化，当前状态：%s，前一个状态：%s", is_yaw_ready_.load() ? "true" : "false", pre_yaw_ready_.load() ? "true" : "false");

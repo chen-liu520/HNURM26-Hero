@@ -33,6 +33,7 @@ public:
         // 创建服务客户端
         client_ = this->create_client<std_srvs::srv::Trigger>("trigger_hero_relocation");
         status_pub_ = this->create_publisher<std_msgs::msg::Bool>("/deploy/yaw_ready", rclcpp::QoS(1).reliable().transient_local());
+        timer_ = this->create_wall_timer(std::chrono::milliseconds(800), std::bind(&TriggerHeroNode::timerCallback, this));
 
         RCLCPP_INFO(this->get_logger(), "========================================");
         RCLCPP_INFO(this->get_logger(), "  Hero 重定位触发器已启动");
@@ -65,6 +66,7 @@ public:
             keyboard_thread_.join();
         }
     }
+    bool is_hero_mode_ = false;
 
 private:
     void keyboardLoop()
@@ -83,6 +85,15 @@ private:
             
             RCLCPP_INFO(this->get_logger(), "----------------------------------------");
             RCLCPP_INFO(this->get_logger(), "等待下一次输入...");
+        }
+    }
+
+    void timerCallback()
+    {
+        if(is_hero_mode_){
+            std_msgs::msg::Bool yaw_ready_msg;
+            yaw_ready_msg.data = true;
+            status_pub_->publish(yaw_ready_msg);
         }
     }
     
@@ -128,9 +139,10 @@ private:
        
     }
 
-    bool is_hero_mode_ = false;
+    
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr status_pub_;
     rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr client_;
+    rclcpp::TimerBase::SharedPtr timer_;
     std::thread keyboard_thread_;
 };
 
