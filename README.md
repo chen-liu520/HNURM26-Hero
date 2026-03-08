@@ -33,6 +33,6 @@ colcon build --symlink-install
 - 2026.3.7：完成英雄专属版本的长理测试：分支`no_LIVO2_V1.2`，结构是quatro+small-gicp，无LIVO2，效果很好，没有什么需要修改的
     - 可以删除一些注释，比如registration节点换用无调试信息的两个函数
 - 2026.3.8：完成哨兵重定位方案长理测试，分支`main`FASTLIVO2+Quatro+smallgicp，效果极好，配准良好，base_link很准确，运行TRAKING后CPU占用依然可以接受，但是有几个小问题
-    - TF中：LIVO2部分的camera_init和aft_mapped的TF坐标系无法链接到主树树上
-    - 为了节省资源，设计为离散重定位触发：初始和过起伏之后触发，无需traking。**注意重定位TF必须连续发送，不然TF树会断开，为什么？**
+    - TF中：LIVO2部分的camera_init和aft_mapped的TF坐标系无法链接到主树树上,**已经解决,TF树完好**
+    - 为了节省资源，设计为离散重定位触发：初始和过起伏之后触发，无需traking。**注意重定位TF必须连续发送，不然TF树会断开，因为TF的buffer默认是10s**
     - **下一次着重测试：我方建图位姿固定，换为对方启动会不会漂移**
