@@ -112,8 +112,6 @@ namespace hnurm
         global_map_.reset(new pcl::PointCloud<pcl::PointXYZ>);
         global_map_PointCovariance_.reset(new pcl::PointCloud<pcl::PointCovariance>);
 
-        // load pcd
-        load_pcd_map(pcd_file_);
         // 配置 ROS2 的 QoS（Quality of Service，服务质量）策略
         // 队列保留 最新的 10 条消息，旧消息会被丢弃（类似于缓冲区大小）
         rclcpp::QoS qos_profile(rclcpp::KeepLast(10));
@@ -126,11 +124,6 @@ namespace hnurm
             pointcloud_sub_topic_,
             rclcpp::SensorDataQoS(),
             std::bind(&RelocationNode::pointcloud_sub_callback, this, std::placeholders::_1));
-
-        init_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
-            "/initialpose",
-            rclcpp::SensorDataQoS(),
-            std::bind(&RelocationNode::initial_pose_callback, this, std::placeholders::_1));
 
         // 服务端
         hero_trigger_service_ = this->create_service<std_srvs::srv::Trigger>(
@@ -146,10 +139,13 @@ namespace hnurm
         // 发布状态，可能会给决策节点用，想法是reset状态急停，等待配准
         status_pub_ = this->create_publisher<std_msgs::msg::String>("/registration_status", 10);
         timer_ = this->create_wall_timer(std::chrono::milliseconds(1550), std::bind(&RelocationNode::timer_callback, this));
+        tf_pub_timer_ = this->create_wall_timer(std::chrono::milliseconds(200), std::bind(&RelocationNode::tf_pub_timer_callback, this));
 
         init_current_clouds_vector.reserve(init_accumulation_counter_ + 10); // 只预留空间，不分配内存，不创建对象
 
         set_gicp_handler(); // 设置两个GICP参数
+        
+        load_pcd_map(pcd_file_);
     }
 
     RelocationNode::~RelocationNode()
@@ -160,42 +156,6 @@ namespace hnurm
         }
     }
     
-    void RelocationNode::initial_pose_callback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
-    {
-        if (use_rviz_revise_ && !is_QUAandGICP_running_.load()) // enable reset initial pose // 是否得到quatro++的初始配准
-        // 允许通过 RViz 修正位姿
-        // 只有 Quatro 完成后才能手动修正
-        {
-            // 提取位姿信息
-            geometry_msgs::msg::Transform trans_;
-            trans_.translation.x = msg->pose.pose.position.x;
-            trans_.translation.y = msg->pose.pose.position.y;
-            trans_.translation.z = 0.0;
-            trans_.rotation.w = msg->pose.pose.orientation.w;
-            trans_.rotation.x = msg->pose.pose.orientation.x;
-            trans_.rotation.y = msg->pose.pose.orientation.y;
-            trans_.rotation.z = msg->pose.pose.orientation.z;
-            // 转换为 Eigen 格式
-            initial_guess_ = tf2::transformToEigen(trans_);
-            // guesses_ = generate_initial_guesses(initial_guess_,0.5,M_PI/6);
-
-            getInitialPose_ = true;
-            RCLCPP_INFO(get_logger(), "Received initial pose:");
-            RCLCPP_INFO(get_logger(), "  Position: [%.2f, %.2f, %.2f]",
-                        msg->pose.pose.position.x,
-                        msg->pose.pose.position.y,
-                        msg->pose.pose.position.z);
-            RCLCPP_INFO(get_logger(), "  Orientation: [%.2f, %.2f, %.2f, %.2f]",
-                        msg->pose.pose.orientation.x,
-                        msg->pose.pose.orientation.y,
-                        msg->pose.pose.orientation.z,
-                        msg->pose.pose.orientation.w);
-        }
-        else // 提示等待 Quatro 计算
-        {
-            RCLCPP_ERROR(get_logger(), "正在初始化配准或者不允许使用rviz设定初始位姿，请修改参数或等待");
-        }
-    }
 
     void RelocationNode::load_pcd_map(const std::string &map_path)
     {
@@ -283,10 +243,10 @@ namespace hnurm
         RCLCPP_INFO(get_logger(), "[Normal Mode] threads=%d, max_iter=%d, trans_eps=%.1e, rot_eps=%.1e",
                     gicp_num_threads_, static_cast<int>(gicp_max_iterations_),
                     gicp_convergence_translation_tolerance_, gicp_convergence_rotation_tolerance_);
-        RCLCPP_BLUE(get_logger(), " 英雄模式参数打印 ");
-        RCLCPP_FATAL(get_logger(), "[Hero Mode] threads=%d, max_iter=%d, trans_eps=%.1e, rot_eps=%.1e",
-                     gicp2_num_threads_, static_cast<int>(gicp2_max_iterations_),
-                     gicp2_convergence_translation_tolerance_, gicp2_convergence_rotation_tolerance_);
+        RCLCPP_INFO(get_logger(), " \033[34m英雄模式参数打印 \033[0m");
+        RCLCPP_INFO(get_logger(), "\033[34m[Hero Mode] threads=%d, max_iter=%d, trans_eps=%.1e, rot_eps=%.1e[0m",
+                    gicp2_num_threads_, static_cast<int>(gicp2_max_iterations_),
+                    gicp2_convergence_translation_tolerance_, gicp2_convergence_rotation_tolerance_);
     }
 
     void RelocationNode::update_deque_when_registration_thread_running(sensor_msgs::msg::PointCloud2::SharedPtr msg)
@@ -330,23 +290,23 @@ namespace hnurm
         {
             if (state_.load() == State::INIT && !use_rviz_revise_)
             {
-                accumulate_cloud_then_QUAandGICP_with_debug(msg, init_accumulation_counter_);
+                accumulate_cloud_then_QUAandGICP(msg, init_accumulation_counter_);
             }
             else if (state_.load() == State::TRACKING)
             {
                 // small_gicp 连续配准,滑动窗口
-                GICP_tracking(msg);
+                // GICP_tracking(msg);
             }
             else if (state_.load() == State::RESET)
             {
-                accumulate_cloud_then_QUAandGICP_with_debug(msg, reset_accumulation_counter_);
+                accumulate_cloud_then_QUAandGICP(msg, reset_accumulation_counter_);
             }
             else if (state_.load() == State::HERO)
             {
                 if (use_hero_individual_)
                 {
-                    RCLCPP_BLUE(get_logger(), "英雄部署模式开启！！！！！！！！！！！！！！！！！！！");
-                    accumulate_cloud_then_QUAandGICP_with_debug(msg, hero_qua_accumulation_counter_);
+                    RCLCPP_INFO(get_logger(), "\033[34m英雄部署模式开启！！！！！！！！！！！！！！！！！！！\033[0m");
+                    accumulate_cloud_then_QUAandGICP(msg, hero_qua_accumulation_counter_);
                 }
                 else
                 {
@@ -400,13 +360,26 @@ namespace hnurm
         status_pub_->publish(status_msg);
     }
 
+    void RelocationNode::tf_pub_timer_callback()
+    {
+        Eigen::Isometry3d T_map_odom = pre_result_;
+
+        transform.header.stamp = this->now();
+        transform.header.frame_id = "map";
+        transform.child_frame_id = "odom";
+
+        transform.transform = tf2::eigenToTransform(T_map_odom).transform;
+        transform.header.stamp = this->now();
+        tf_broadcaster_->sendTransform(transform);
+    }
+
     void RelocationNode::trigger_hero_callback(
         const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
         std::shared_ptr<std_srvs::srv::Trigger::Response> response)
     {
         (void)request; // 未使用请求参数
 
-        RCLCPP_BLUE(get_logger(), "收到Hero模式触发请求");
+        RCLCPP_INFO(get_logger(), "\033[34m收到Hero模式触发请求\033[0m");
 
         // 安全检查1：是否启用英雄模式
         if (!use_hero_individual_)
@@ -443,8 +416,6 @@ namespace hnurm
         // 清理之前的初始化向量（避免残留数据影响）
         init_current_clouds_vector.clear();
 
-        RCLCPP_BLUE(get_logger(), "状态已切换为HERO，准备执行高精度配准");
-
         response->success = true;
         response->message = "State switched to HERO, high-precision registration will start on next point cloud";
     }
@@ -463,8 +434,7 @@ namespace hnurm
         {
             registration = registration_;
 
-            RCLCPP_INFO(this->get_logger(), "函数small_gicp_registration：：small_gicp的normal模式配准，检查参数有没有正确传递：");
-            RCLCPP_INFO(get_logger(), "[Normal Mode] threads=%d, max_dist_sq=%.1e, max_iter=%d, trans_eps=%.1e, rot_eps=%.1e",
+            RCLCPP_INFO(get_logger(), "\033[34m[Normal Mode] threads=%d, max_dist_sq=%.1e, max_iter=%d, trans_eps=%.1e, rot_eps=%.1e\033[0m",
                         registration.reduction.num_threads,    // 线程数
                         registration.rejector.max_dist_sq,     // 最大距离平方
                         registration.optimizer.max_iterations, // 最大迭代次数
@@ -483,9 +453,8 @@ namespace hnurm
         else if (gicp_type == "super")
         {
             registration = super_registration_;
-
-            RCLCPP_BLUE(this->get_logger(), "函数small_gicp_registration：：small_gicp的HERO部署模式配准，检查参数有没有正确传递：");
-            RCLCPP_FATAL(get_logger(), "[Normal Mode] threads=%d, max_dist_sq=%.1e, max_iter=%d, trans_eps=%.1e, rot_eps=%.1e",
+            RCLCPP_INFO(this->get_logger(), "\033[34m函数small_gicp_registration：：small_gicp的INIT/RESET/HERO模式配准\033[0m");
+            RCLCPP_INFO(get_logger(), "\033[34m[Super Mode] threads=%d, max_dist_sq=%.1e, max_iter=%d, trans_eps=%.1e, rot_eps=%.1e\033[0m",
                          registration.reduction.num_threads,    // 线程数
                          registration.rejector.max_dist_sq,     // 最大距离平方
                          registration.optimizer.max_iterations, // 最大迭代次数
@@ -509,34 +478,17 @@ namespace hnurm
 
         if (state_.load() == State::TRACKING)
         {
-            RCLCPP_INFO(this->get_logger(), "函数small_gicp_registration：：small_gicp的tracking模式配准");
             result = registration.align(*global_map_PointCovariance_, *source_cloud_PointCovariance_, *target_tree_, pre_result_);
         }
         // RESET + INIT是一个逻辑：使用quatro++进行初始积累，成功后切换到small_gicp
         else /*if(state_ == State::INIT)*/
         {
-            RCLCPP_INFO(this->get_logger(), "函数small_gicp_registration：：small_gicp的INIT/RESET模式配准");
             result = registration.align(*global_map_PointCovariance_, *source_cloud_PointCovariance_, *target_tree_, initial_guess_);
 
             if (!result.converged /*&& !doFirstRegistration_*/)
             {
                 RCLCPP_ERROR(get_logger(), "cannot do first registration,reset,result error:%f", result.error);
                 reset();
-                transform.header.frame_id = "map";
-                if (current_sum_cloud_->header.frame_id.empty())
-                {
-                    transform.child_frame_id = "odom";
-                    RCLCPP_WARN(get_logger(), "函数small_gicp_registration：：current_sum_cloud_-的frame_id为空，改为odom");
-                }
-                else
-                {
-                    RCLCPP_WARN(get_logger(), "函数small_gicp_registration：：current_sum_cloud_-的frame_id为：%s", current_sum_cloud_->header.frame_id.c_str());
-                    transform.child_frame_id = current_sum_cloud_->header.frame_id;
-                }
-                transform.transform = tf2::eigenToTransform(initial_guess_).transform;
-                transform.header.stamp = this->now();      // 添加时间戳
-                tf_broadcaster_->sendTransform(transform); // 发布
-                RCLCPP_ERROR(get_logger(), "函数relocalization：：small_gicp配准失败，发布quatro结果作为fallback");
                 return;
             }
         }
@@ -548,20 +500,9 @@ namespace hnurm
             pre_result_ = result.T_target_source;
             // doFirstRegistration_ = true;
             Eigen::Isometry3d T_map_odom = pre_result_;
-
-            // publish transform
-            transform.header.stamp = this->now();
-            transform.header.frame_id = "map";
             
-            if (current_sum_cloud_->header.frame_id.empty()){
-                transform.child_frame_id = "odom";
-                RCLCPP_WARN(get_logger(), "函数small_gicp_registration：：current_sum_cloud_-的frame_id为空，改为odom");
-            }else{
-                RCLCPP_WARN(get_logger(), "函数small_gicp_registration：：current_sum_cloud_-的frame_id为：%s", current_sum_cloud_->header.frame_id.c_str());
-                transform.child_frame_id = current_sum_cloud_->header.frame_id;
-            }             
-            transform.transform = tf2::eigenToTransform(T_map_odom).transform;
-            // 计算平均误差，更直观的配准质量指标
+            /******************************配准质量评估 start********************************/
+            // 计算平均误差 (average error)
             double avg_error = result.num_inliers > 0 ? result.error / result.num_inliers : 0.0;
             // 计算内点率 (inlier ratio)
             size_t total_points = source_cloud_PointCovariance_->size();
@@ -582,27 +523,24 @@ namespace hnurm
             } else {
                 RCLCPP_ERROR(get_logger(), "配准质量: 较差 (avg_error >= 0.3)");
             }
+            /******************************配准质量评估 end********************************/
 
+            /***********************发布TF变换：map->odom************************/
+            transform.header.stamp = this->now();
+            transform.header.frame_id = "map";
+            transform.child_frame_id = "odom";
+            transform.transform = tf2::eigenToTransform(T_map_odom).transform;
             transform.header.stamp = this->now();
             tf_broadcaster_->sendTransform(transform);
+            /***********************发布TF变换：map->odom************************/
 
             /***********************发布配准后的点云 start************************/
             sensor_msgs::msg::PointCloud2 current_cloud_pub_msg;
             pcl::toROSMsg(*current_sum_cloud_, current_cloud_pub_msg);
             current_cloud_pub_msg.header.frame_id = "odom";
-            /*
-            if (current_sum_cloud_->header.frame_id.empty())
-            {
-                current_cloud_pub_msg.header.frame_id = "odom";
-                RCLCPP_WARN(get_logger(), "函数small_gicp_registration：：current_sum_cloud_-的frame_id为空，【发布配准后的点云，坐标系改为map】");
-            }
-            else
-            {
-                RCLCPP_WARN(get_logger(), "函数small_gicp_registration：：current_sum_cloud_-的frame_id为：%s", current_sum_cloud_->header.frame_id.c_str());
-                current_cloud_pub_msg.header.frame_id = current_sum_cloud_->header.frame_id;
-            }*/
             current_cloud_pub_msg.header.stamp = this->now();
             pointcloud_registered_pub_->publish(current_cloud_pub_msg);
+            /***********************发布配准后的点云 end************************/
 
             /************************更新状态*****************************/
 
@@ -610,18 +548,6 @@ namespace hnurm
             {
                 state_.store(State::TRACKING);
             }
-        }
-        else
-        {
-            gicp_failed_counter_++;
-            if (gicp_failed_counter_ > 1)
-            {
-                gicp_failed_counter_ = 0;
-                reset();
-                RCLCPP_ERROR(get_logger(), "GICP两次配准失败，重置系统，从quatro开始");
-            }
-
-            RCLCPP_ERROR(get_logger(), "Relocalization failed to converge,result error:%f", result.error);
         }
     }
 
@@ -814,6 +740,7 @@ namespace hnurm
             }
         }
     }
+    
     void RelocationNode::accumulate_cloud_then_QUAandGICP_with_debug(const sensor_msgs::msg::PointCloud2::SharedPtr msg, int quatro_num)
     {
         RCLCPP_INFO(this->get_logger(), "开始积累点云，后quatro++和GICP【初始位姿】配准，当前为accumulate_cloud_then_QUAandGICP_with_debug函数，如果正常接下来会打印【%d帧积累【降采样】所用时间】", quatro_num);

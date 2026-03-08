@@ -66,12 +66,11 @@ namespace hnurm
     private:
         /***********************回调和工具函数声明 start************************/
         void pointcloud_sub_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
-        // void recv_sub_callback(const hnurm_interfaces::msg::VisionRecvData::SharedPtr msg);
-        void initial_pose_callback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg);
         void load_pcd_map(const std::string &map_path);
         void set_gicp_handler();
         void update_deque_when_registration_thread_running(sensor_msgs::msg::PointCloud2::SharedPtr msg);
         void timer_callback();
+        void tf_pub_timer_callback();
 
         void trigger_hero_callback(
             const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
@@ -94,7 +93,6 @@ namespace hnurm
 
         /***********************订阅者，发布者，定时器声明 start************************/
         rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_sub_;
-        rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr init_pose_sub_; // 订阅rviz发布的初始位姿
 
         // 服务端，接受请求，触发HERO模式
         rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr hero_trigger_service_;
@@ -103,6 +101,7 @@ namespace hnurm
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_pub_;            // 发布降采样的全局点云
         rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_pub_;                        // 发布状态
         rclcpp::TimerBase::SharedPtr timer_;
+        rclcpp::TimerBase::SharedPtr tf_pub_timer_;
 
         std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
@@ -115,8 +114,6 @@ namespace hnurm
         pcl::PointCloud<pcl::PointCovariance>::Ptr global_map_PointCovariance_; // 全局点云协方差/全局带协方差的降采样点云
 
         pcl::PointCloud<pcl::PointXYZ>::Ptr current_accumulated_cloud_; // 原：source_cloud_ 当前积累点云（未降采样）
-        // pcl::PointCloud<pcl::PointXYZ>::Ptr current_cloud_;             // 原：accumulte_cloud_ 当前帧点云（未降采样）
-        // pcl::PointCloud<pcl::PointXYZ>::Ptr current_cloud_downsampled_; // 当前帧点云（降采样）
         pcl::PointCloud<pcl::PointXYZ>::Ptr summary_downsampled_cloud_; // 积累的降采样点云
 
         pcl::PointCloud<pcl::PointCovariance>::Ptr source_cloud_PointCovariance_; // gicp配准原

@@ -25,7 +25,7 @@ find_package(ament_cmake REQUIRED)
 ### 编译器配置
 set(CMAKE_BUILD_TYPE "Release")
 set(CMAKE_CXX_FLAGS "-fexceptions -g -ggdb")
-set(ignore_unused_vars "${CATKIN_INSTALL_INTO_PREFIX_ROOT}")
+set(ignore_unused_vars "${CATKIN_INSTALL_INTO_PREFIX_ROOT}" "${CATKIN_SYMLINK_INSTALL}")
 include(FindOpenMP)
 if(OPENMP_FOUND)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")

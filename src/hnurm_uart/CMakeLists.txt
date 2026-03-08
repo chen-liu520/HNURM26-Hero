@@ -17,6 +17,7 @@ ament_auto_add_executable(hnurm_uart_node src/uart_node.cpp src/main.cpp)
 target_link_libraries(hnurm_uart_node hnurm_uart)
 
 ament_auto_package(
+        USE_SCOPED_HEADER_INSTALL_DIR
         INSTALL_TO_SHARE
         launch
         params
