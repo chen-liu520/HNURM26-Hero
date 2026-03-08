@@ -229,7 +229,7 @@ void UartNode::timer_callback()
                 static_transform.transform.rotation.y = q.y();
                 static_transform.transform.rotation.z = q.z();
                 static_transform.transform.rotation.w = q.w();
-                static_broadcaster_->sendTransform(static_transform);
+                //static_broadcaster_->sendTransform(static_transform);
                 
             }
             else {
