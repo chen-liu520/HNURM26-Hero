@@ -2,13 +2,42 @@
 # matplotlib.use('Agg')
 import numpy as np
 import matplotlib.pyplot as plt
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
+
+def load_data(filename):
+    file_path = BASE_DIR / filename
+    if not file_path.exists():
+        raise FileNotFoundError(f"{file_path} not found.")
+    rows = []
+    expected_cols = None
+    with open(file_path, "rb") as f:
+        for raw_line in f:
+            line = raw_line.replace(b"\x00", b"").strip()
+            if not line:
+                continue
+            try:
+                values = [float(x) for x in line.split()]
+            except ValueError:
+                continue
+            if expected_cols is None:
+                expected_cols = len(values)
+            if len(values) != expected_cols:
+                continue
+            rows.append(values)
+
+    if not rows:
+        raise ValueError(f"No valid numeric rows in {file_path}.")
+
+    return np.asarray(rows, dtype=float)
 
 fig, axs = plt.subplots(3,2)
 lab_pre = ['', 'pre-x', 'pre-y', 'pre-z']
 lab_out = ['', 'out-x', 'out-y', 'out-z']
 plot_ind = range(7,10)
-a_pre=np.loadtxt('mat_pre.txt')
-a_out=np.loadtxt('mat_out.txt')
+a_pre=load_data('mat_pre.txt')
+a_out=load_data('mat_out.txt')
 time_pre=a_pre[:,0]
 time_out=a_out[:,0]
 axs[0,0].set_title('Attitude')
@@ -38,7 +67,7 @@ plt.grid()
 
 #### Draw IMU data
 fig, axs = plt.subplots(2)
-imu=np.loadtxt('imu.txt')
+imu=load_data('imu.txt')
 time=imu[:,0]
 axs[0].set_title('Gyroscope')
 axs[1].set_title('Accelerameter')

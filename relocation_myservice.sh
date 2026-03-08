@@ -11,6 +11,9 @@ echo "=========================================="
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE_DIR="$SCRIPT_DIR"
 
+gnome-terminal -- bash -c "cd /home/rm/fast_livo2_ros2/ && source install/setup.bash && ros2 launch livox_ros_driver2 msg_MID360_launch.py; exec bash"
+
+sleep 3
 echo "[1/5] 启动串口..."
 gnome-terminal -- bash -c "source $WORKSPACE_DIR/install/setup.bash && ros2 launch hnurm_uart hnurm_uart.launch.py; exec bash"
 

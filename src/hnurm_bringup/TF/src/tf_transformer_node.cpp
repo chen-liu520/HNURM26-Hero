@@ -122,14 +122,7 @@ namespace hnurm
         // static_broadcaster_->sendTransform(static_transform);
 
         // 3. 静态变换  实时点云坐标系：雷达开机位置/cloud_registration frame_id -> odom：完全重合
-        static_transform.header.frame_id = pointcloud_registrated_->header.frame_id; // 父坐标系
-        if(static_transform.header.frame_id.empty())
-        {
-            static_transform.header.frame_id = "camera_init"; // 使用默认值
-            RCLCPP_WARN(get_logger(), "PointCloud2 message has no frame_id, using default: %s", static_transform.header.frame_id.c_str());
-        }else{
-            RCLCPP_FATAL(get_logger(), "PointCloud2 message has frame_id: %s, using it as parent frame", static_transform.header.frame_id.c_str());
-        }
+        static_transform.header.frame_id = "camera_init"; // 使用默认值
         static_transform.child_frame_id = "odom";                                    // 子坐标系
         static_transform.transform.translation.x = 0.0;
         static_transform.transform.translation.y = 0.0;

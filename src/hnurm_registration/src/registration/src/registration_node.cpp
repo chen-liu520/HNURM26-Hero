@@ -253,7 +253,6 @@ namespace hnurm
         auto t_end = std::chrono::steady_clock::now();
         auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start).count();
         RCLCPP_INFO(get_logger(), "全局点云地图下采样使用时间： %ld ms", elapsed_ms);
-
         RCLCPP_INFO(this->get_logger(), "Downsampled PCD map to %ld points", global_map_PointCovariance_->size());
 
         // 5. 可视化输出
@@ -363,7 +362,7 @@ namespace hnurm
                     RCLCPP_WARN(get_logger(), "当前模式为使用rviz给出初始位姿，等待初始位姿中......");
                     return;
                 }
-                GICP_tracking(msg);
+                //GICP_tracking(msg);
             }
         }
         else

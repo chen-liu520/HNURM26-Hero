@@ -3,10 +3,10 @@
     pointcloud_sub_topic: "/cloud_registered" #去畸变点云
     trigger_hero_service_name: "/trigger_hero_relocation" # 服务名
     decision_reset_topic: "/change_registration_status" # 决策节点发布的状态，用于决策发过来过完起伏路段之后reset
-    pcd_file: "/home/rm/hero_0/HNURM26-Hero1/src/hnurm_registration/src/registration/map/raw.pcd"
-    downsampled_pcd_file: "/home/rm/hero_0/HNURM26-Hero1/src/hnurm_registration/src/registration/map/down.pcd"
+    pcd_file: "/home/rm/hero_0/HNURM26-Hero1/src/hnurm_registration/src/registration/map/downfloor_raw.pcd"
+    downsampled_pcd_file: "/home/rm/hero_0/HNURM26-Hero1/src/hnurm_registration/src/registration/map/downfloor_down.pcd"
     # 降采样，减少点云数量，提高配准速度
-    generate_downsampled_pcd: false   # please turn this off when using registration
+    generate_downsampled_pcd: true   # please turn this off when using registration
 
     init_accumulation_counter : 9             # LC 新增：初始状态积累点云数量
     track_accumulation_counter : 3             # LC 新增：跟踪状态积累点云数量,也是初次配准gicp取的帧数,必须保证track<init
@@ -30,7 +30,7 @@
     quatro_voxel_size: 0.2             # quatro配准下采样
 
     # 英雄部署模式定位 配准参数#################################################################
-    gicp2_num_threads: 4                             # 线程数
+    gicp2_num_threads: 10                             # 线程数
     gicp2_num_neighbors: 20                   
     gicp2_max_dist_sq: 0.16                          # 距离阈值平方
     gicp2_max_iterations: 50                         # 最大迭代次数（默认通常是30-50）
@@ -67,4 +67,4 @@
     m_rotation_gnc_factor: 1.39 
     m_rotation_cost_thr: 0.0001 
     m_estimate_scale: false 
-    m_use_optimized_matching: true 
+    m_use_optimized_matching: true

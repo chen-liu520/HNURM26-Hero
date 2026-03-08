@@ -13,11 +13,11 @@ def generate_launch_description():
     
     # Find path
     config_file_dir = os.path.join(get_package_share_directory("fast_livo"), "config")
-    rviz_config_file = os.path.join(get_package_share_directory("fast_livo"), "rviz_cfg", "ntu_viral.rviz")
+    rviz_config_file = os.path.join(get_package_share_directory("fast_livo"), "rviz_cfg", "fast_livo2.rviz")
 
     #Load parameters
-    avia_config_cmd = os.path.join(config_file_dir, "NTU_VIRAL.yaml")
-    camera_config_cmd = os.path.join(config_file_dir, "camera_NTU_VIRAL.yaml")
+    avia_config_cmd = os.path.join(config_file_dir, "avia.yaml")
+    camera_config_cmd = os.path.join(config_file_dir, "camera_pinhole.yaml")
 
     # Param use_rviz
     use_rviz_arg = DeclareLaunchArgument(
@@ -60,18 +60,6 @@ def generate_launch_description():
         #     shell=True
         # ),
 
-        # use parameter_blackboard as global parameters server and load camera params
-        Node(
-            package='demo_nodes_cpp',
-            executable='parameter_blackboard',
-            name='parameter_blackboard',
-            # namespace='laserMapping',
-            parameters=[
-                camera_params_file,
-            ],
-            output='screen'
-        ),
-
         # republish compressed image to raw image
         # https://robotics.stackexchange.com/questions/110939/how-do-i-remap-compressed-video-to-raw-video-in-ros2
         # ros2 run image_transport republish compressed raw --ros-args --remap in:=/left_camera/image --remap out:=/left_camera/image
@@ -97,6 +85,7 @@ def generate_launch_description():
             name="laserMapping",
             parameters=[
                 avia_params_file,
+                camera_params_file,
             ],
             # https://docs.ros.org/en/humble/How-To-Guides/Getting-Backtraces-in-ROS-2.html
             prefix=[

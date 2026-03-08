@@ -2,7 +2,6 @@ std_msgs/Header header
 
 TargetState target_state
 TargetType target_type
-Gesture gesture
 
 float32 pitch
 float32 yaw

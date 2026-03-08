@@ -3,7 +3,6 @@ std_msgs/Header header
 SelfColor self_color
 WorkMode work_mode
 BulletSpeed bullet_speed
-Gesture gesture
 
 float32 roll
 float32 pitch
