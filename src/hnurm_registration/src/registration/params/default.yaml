@@ -19,7 +19,7 @@
     hero_gicp_running_counter_threshold: 3             # 英雄部署模式gicp运行次数阈值
 
     # 普通跟踪阶段small_gicp 配准参数#################################################################
-    gicp_num_threads: 2                      # 线程数
+    gicp_num_threads: 12                      # 线程数
     gicp_num_neighbors: 20                   
     gicp_max_dist_sq: 0.25                    # 距离阈值平方
     gicp_max_iterations: 20             # 最大迭代次数（默认通常是30-50）
@@ -33,7 +33,7 @@
     quatro_voxel_size: 0.2             # quatro配准下采样
 
     # 英雄部署模式定位 配准参数#################################################################
-    gicp2_num_threads: 3                             # 线程数
+    gicp2_num_threads: 12                             # 线程数
     gicp2_num_neighbors: 20                   
     gicp2_max_dist_sq: 0.16                          # 距离阈值平方
     gicp2_max_iterations: 30                         # 最大迭代次数（默认通常是30-50）
