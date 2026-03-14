@@ -211,6 +211,8 @@ namespace hnurm
         bool is_first_callback_ = true;
         bool is_queue_full_ = false;
 
+        int static_cloud_pub_counter_ = 0; // 静态点云发布次数,用于控制频率
+
         /**************6. 多线程和锁*******************************/
 
         std::future<void> quatro_future_;

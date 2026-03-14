@@ -138,8 +138,8 @@ namespace hnurm
         pointcloud_registered_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/registration/pointcloud_registered", 10);
         // 发布状态，可能会给决策节点用，想法是reset状态急停，等待配准
         status_pub_ = this->create_publisher<std_msgs::msg::String>("/registration_status", 10);
-        timer_ = this->create_wall_timer(std::chrono::milliseconds(1550), std::bind(&RelocationNode::timer_callback, this));
-        tf_pub_timer_ = this->create_wall_timer(std::chrono::milliseconds(200), std::bind(&RelocationNode::tf_pub_timer_callback, this));
+        timer_ = this->create_wall_timer(std::chrono::milliseconds(373), std::bind(&RelocationNode::timer_callback, this));
+        tf_pub_timer_ = this->create_wall_timer(std::chrono::milliseconds(27), std::bind(&RelocationNode::tf_pub_timer_callback, this));
 
         init_current_clouds_vector.reserve(init_accumulation_counter_ + 10); // 只预留空间，不分配内存，不创建对象
 
@@ -334,11 +334,16 @@ namespace hnurm
 
     void RelocationNode::timer_callback()
     {
-        if (cloud_) // test reading pcd
-        {
-            cloud_->header.stamp = this->now();
-            pointcloud_pub_->publish(*cloud_);
+        static_cloud_pub_counter_++;
+        if(static_cloud_pub_counter_ == 5){
+            if (cloud_) // test reading pcd
+            {
+                cloud_->header.stamp = this->now();
+                pointcloud_pub_->publish(*cloud_);
+            }
+            static_cloud_pub_counter_ = 0;
         }
+        
         std_msgs::msg::String status_msg;
         std::string state_str;
         switch (state_.load())
